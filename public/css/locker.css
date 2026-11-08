@@ -8,3 +8,5 @@ html body{background:var(--lk-bg);color:var(--lk-text)}.locker-page,.locker-page
 html[data-theme-mode=dark] .hero em{color:#b9df9d}html[data-theme-mode=light] .hero em{color:#426b36}
 html[data-theme-mode=dark] .art-caption{color:#aecb9b}html[data-theme-mode=light] .art-caption{color:#456233}
 .locker-page .ov-sel-trigger{min-height:46px}
+
+@media(max-width:700px){.hero .actions{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.hero .actions .button{justify-content:center;text-align:center}}
