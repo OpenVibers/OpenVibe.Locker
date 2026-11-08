@@ -1,0 +1,19 @@
+# OpenVibe.Locker
+
+Private files and expiring Sends. Seal and open only on your device with openvibe-sdk/locker.
+The service stores opaque locker.envelope.v1 ciphertext in OpenVibe.Media's private locker namespace.
+Never send plaintext, filenames, passwords, recovery words, private keys or a Send's fragment key.
+
+- [Locked items on OpenVibe](/docs)
+- [OpenAPI](/openapi.json)
+- [Source, payload format and streaming examples](https://github.com/OpenVibers/OpenVibe.Locker)
+- [Locker SDK](https://github.com/OpenVibers/OpenVibe.SDK/blob/main/docs/locker.md)
+- [Sharing SDK](https://github.com/OpenVibers/OpenVibe.SDK/blob/main/docs/share.md)
+
+Use a Network user bearer token. Uploads require a live account at least 7 days old, without a ban or local upload restriction.
+The default storage allowance is 5 GiB; a file may contain up to 2 GiB, with padding overhead bounded separately.
+POST /api/v1/files takes a people-locked envelope with the owner's slot. GET lists the owner's files; DELETE /api/v1/files/:id removes one.
+POST /api/v1/sends?expires_in=3600&download_limit=1 takes a link-locked envelope. The expiry range is 1 hour to 30 days.
+Anyone can GET /api/v1/sends/:id/content until expiry or the download-attempt limit. Keep the key in #k=, never in a query or request body.
+For people sharing, upload the new ciphertext to POST /api/v1/files/:id/reseals with If-Match, then PUT its envelope_ref and members to /api/v1/files/:id/share.
+GET /api/v1/account/export returns the ADR-033 manifest; download each envelope separately while authenticated.

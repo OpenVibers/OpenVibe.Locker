@@ -1,0 +1,8 @@
+{
+  "name": "OpenVibe.Locker",
+  "description": "Private files and expiring Sends; encrypt and decrypt with the Locker SDK on your device.",
+  "url": "https://openvibe.locker",
+  "documentation": "https://openvibe.locker/docs",
+  "openapi": "https://openvibe.locker/openapi.json",
+  "authentication": "Network user bearer token for uploads and Drive; no account for opening a Send"
+}

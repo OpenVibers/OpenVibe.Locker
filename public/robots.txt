@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /api/
+Disallow: /s/
+Disallow: /files/
+Disallow: /drive
+Disallow: /sends
+Disallow: /staff

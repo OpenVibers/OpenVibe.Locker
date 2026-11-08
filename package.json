@@ -1,0 +1,29 @@
+{
+  "name": "openvibe-locker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private files and expiring Sends, encrypted on your device",
+  "main": "server/index.js",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "check": "node scripts/check.js",
+    "test:browser": "node test/browser.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "helmet": "^8.1.0",
+    "pg": "^8.23.0",
+    "@electric-sql/pglite": "^0.5.8",
+    "openvibe-contracts": "https://codeload.github.com/OpenVibers/OpenVibe.Contracts/tar.gz/refs/tags/v0.346.0",
+    "openvibe-sdk": "https://codeload.github.com/OpenVibers/OpenVibe.SDK/tar.gz/80f212323869347385e34545d6ee0a911017f5af",
+    "openvibe-shared": "https://codeload.github.com/OpenVibers/OpenVibe.Shared/tar.gz/42cb2d69f9c741d4632f160aed60ce135c9e327c"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.1"
+  }
+}

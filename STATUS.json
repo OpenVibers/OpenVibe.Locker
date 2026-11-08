@@ -1,0 +1,25 @@
+{
+  "service": "OpenVibe.Locker",
+  "version": "0.1.0",
+  "status": "review",
+  "domain": "openvibe.locker",
+  "port": 5145,
+  "drill_port": 15145,
+  "database": "ov_locker",
+  "features": [
+    "encrypted-drive",
+    "folders",
+    "encrypted-rename",
+    "people-sharing",
+    "expiring-sends",
+    "device-unlock",
+    "recovery-kit",
+    "reports",
+    "account-data"
+  ],
+  "launch": "Not deployed. Requires companion PR review, service credentials, database roles and an Events subscription before launch.",
+  "repository": "OpenVibers/OpenVibe.Locker",
+  "stage": "alpha",
+  "deployed": false,
+  "updated": "2026-11-08"
+}
