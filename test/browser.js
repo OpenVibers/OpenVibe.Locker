@@ -59,10 +59,13 @@ const { boot, SUBJECT, OTHER, locker } = require('./helpers');
     try {
         for (const width of (process.env.LOCKER_SKIP_SHOTS ? [] : [390, 1280])) for (const scheme of ['light', 'dark']) {
             const { page, context } = await pageFor(width, scheme);
-            for (const route of ['/', '/drive', '/sends', '/recovery', '/docs']) {
+            for (const route of ['/', '/drive', '/passwords', '/sends', '/recovery', '/docs']) {
                 await page.goto(t.base + route, { waitUntil: 'networkidle' });
                 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width, `${route} ${width} ${scheme}: overflow`);
-                const smallTargets = await page.locator('main button,main input,main select').evaluateAll((elements) => elements.filter((e) => e.getAttribute('aria-hidden') !== 'true' && e.getBoundingClientRect().height && e.getBoundingClientRect().height < 44).map((e) => e.outerHTML.slice(0, 90)));
+                const smallTargets = await page.locator('main button,main input,main select').evaluateAll((elements) => elements.filter((e) => {
+                    const target = e.type === 'checkbox' ? e.closest('label') : e;
+                    return e.getAttribute('aria-hidden') !== 'true' && target?.getBoundingClientRect().height && target.getBoundingClientRect().height < 44;
+                }).map((e) => e.outerHTML.slice(0, 90)));
                 assert.deepEqual(smallTargets, [], 'touch controls are at least 44px');
                 await page.screenshot({ animations: 'disabled', timeout: 60000, path: path.join(out, `${route === '/' ? 'home' : route.slice(1)}-${width}-${scheme}.png`), fullPage: true });
             }
@@ -103,6 +106,23 @@ const { boot, SUBJECT, OTHER, locker } = require('./helpers');
         const sharedBytes = new Uint8Array(await (await t.request('GET', `/api/v1/files/${items[0].id}/content`, { user: OTHER })).arrayBuffer());
         assert.ok(Buffer.from(await locker.open(sharedBytes, { person: t.people.get(OTHER) })).includes(content));
         console.log('Browser sharing passed.');
+        await page.goto(`${t.base}/passwords`, { waitUntil: 'networkidle' });
+        await page.locator('[data-action=unlock]').click(); await page.locator('[data-k=pass]').fill(passphrase); await page.locator('[data-k=unlock]').click();
+        await page.waitForFunction(() => OVLocker.state().unlocked);
+        await page.locator('#login-form').evaluate((form) => {
+            const values = { site: 'https://example.test/login', username: 'alice@example.test', password: 'browser-only-password', totp: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ' };
+            for (const [name, value] of Object.entries(values)) {
+                const input = form.elements[name]; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
+                input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+        assert.equal(await page.locator('#login-form').evaluate((f) => f.checkValidity()), true, 'login form values are valid');
+        await page.locator('#login-form button.primary').click();
+        await page.waitForFunction(() => document.querySelector('#items h3')?.textContent.includes('example.test') || document.querySelector('#notice.error')?.textContent, { timeout: 30000 });
+        assert.equal(await page.locator('#notice').textContent(), '', 'password login save/display error');
+        assert.equal(JSON.stringify(await t.db.many('SELECT * FROM locker_items')).includes('browser-only-password'), false, 'password item stays opaque in database');
+        assert.equal(await page.locator('[data-totp]').count(), 1, 'TOTP is computed in the browser');
+        console.log('Browser encrypted password login round trip passed.');
         await page.goto(`${t.base}/sends`, { waitUntil: 'networkidle' });
         await page.locator('#send-form textarea').fill('A browser round trip that stays private.');
         await page.locator('#send-form button.primary').click();
@@ -117,6 +137,6 @@ const { boot, SUBJECT, OTHER, locker } = require('./helpers');
         assert.equal(traffic.some((request) => request.includes(linkKey)), false, 'no request URL, body or referrer to any origin contains the link key');
         await anonymous.context.close(); await context.close();
         assert.deepEqual(errors, [], 'no browser exceptions or CSP refusals');
-        console.log(`Browser: ${process.env.LOCKER_SKIP_SHOTS ? 'existing' : '20 local'} screenshots, no overflow/CSP errors; real worker upload, download, rename, sharing and anonymous Send round trips.`);
+        console.log(`Browser: ${process.env.LOCKER_SKIP_SHOTS ? 'existing' : '24 local'} screenshots, no overflow/CSP errors; real worker upload, download, rename, sharing, password login and anonymous Send round trips.`);
     } finally { await browser.close(); await t.close(); }
 })().catch((e) => { console.error(e); process.exitCode = 1; });

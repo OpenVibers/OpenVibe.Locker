@@ -1,6 +1,6 @@
 # OpenVibe.Locker
 
-A front door for private files and expiring Sends. Node 22, Express/CommonJS and PostgreSQL via `openvibe-sdk/db`.
+A front door for private files, passwords and expiring Sends. Node 22, Express/CommonJS and PostgreSQL via `openvibe-sdk/db`.
 The server stores ciphertext and opaque access metadata. It never seals, opens, indexes, previews, transcodes or
 runs AI on content. The cryptographic format and operations are the existing `locker.envelope.v1` and
 `openvibe-sdk/locker`; the device UI and Share sheet are Shared's `ov-locker.js`, `ov-locker-core.js` and `ov-share.js`.
@@ -21,6 +21,8 @@ Locker tenant. [Launch handoff](deploy/LAUNCH.md) names the exact configuration,
 
 - `/`: device lock status and the front door.
 - `/drive`: encrypted files, folders, rename and delete. Names appear only after the browser decrypts them.
+- `/passwords`: browser-encrypted logins, password generation, TOTP, local search and CSV import. Each breach check
+  asks before sending only the first five SHA-1 hex characters to Have I Been Pwned. Password logins cannot be shared.
 - `/files/:id`: open, download, rename, the people Share sheet, and Report.
 - `/sends`: create a link-locked file or note, choose 1 hour to 30 days and an optional download-attempt limit.
 - `/s/:id#k=<base64url>`: anonymous opening; the key never leaves the fragment. Each content request consumes a claim,
@@ -56,7 +58,7 @@ only enforce the corresponding padded size, since true sizes are encrypted.
 
 Browser uploads use resumable sessions, so every request fits Cloudflare's 100 MB limit:
 
-1. `POST /api/v1/uploads` with JSON `{ kind: "file" | "folder" | "send", bytes, parent?, expires_in?, download_limit? }`.
+1. `POST /api/v1/uploads` with JSON `{ kind: "file" | "folder" | "login" | "send", bytes, parent?, expires_in?, download_limit? }`.
    `bytes` is the entire encrypted envelope size; this reserves quota and returns `{ id, part_size: 33554432 }`.
 2. `PUT /api/v1/uploads/:id/parts/:n` with an octet-stream slice, numbered from zero. Each part is exactly
    32 MiB except the last, which is exactly the remaining bytes. Received parts are immutable and retryable.

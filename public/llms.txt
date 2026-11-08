@@ -1,10 +1,11 @@
 # OpenVibe.Locker
 
-Private files and expiring Sends. Seal and open only on your device with openvibe-sdk/locker.
+Private files, password logins and expiring Sends. Seal and open only on your device with openvibe-sdk/locker.
 The service stores opaque locker.envelope.v1 ciphertext in OpenVibe.Media's private locker namespace.
 Never send plaintext, filenames, passwords, recovery words, private keys or a Send's fragment key.
 
 - [Locked items on OpenVibe](/docs)
+- [Passwords](/passwords)
 - [OpenAPI](/openapi.json)
 - [Source, payload format and streaming examples](https://github.com/OpenVibers/OpenVibe.Locker)
 - [Locker SDK](https://github.com/OpenVibers/OpenVibe.SDK/blob/main/docs/locker.md)
@@ -19,7 +20,7 @@ For people sharing, upload the new ciphertext to POST /api/v1/files/:id/reseals 
 GET /api/v1/account/export returns the ADR-033 manifest; download each envelope separately while authenticated.
 
 For larger envelopes (and all browser uploads), POST /api/v1/uploads with JSON {kind, bytes, parent?, expires_in?, download_limit?}.
-kind is file, folder or send. bytes is the complete ciphertext length. This reserves quota and returns {id, part_size:33554432}.
+kind is file, folder, login or send. bytes is the complete ciphertext length. This reserves quota and returns {id, part_size:33554432}.
 PUT /api/v1/uploads/:id/parts/:n with application/octet-stream; zero-based parts are exactly 32 MiB except the last remaining bytes.
 GET /api/v1/uploads/:id returns received_parts; resume only missing parts. Successful parts extend the one-hour idle expiry.
 POST /api/v1/uploads/:id/complete validates the envelope, stores it in Media and returns the item. Retry completion safely for 24 hours.

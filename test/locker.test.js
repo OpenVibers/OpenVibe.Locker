@@ -9,6 +9,19 @@ const create = async (sealed, send = false, extra = '') => {
     const r = await t.request('POST', send ? `/api/v1/sends?expires_in=3600${extra}` : `/api/v1/files${extra}`, { body: sealed.bytes });
     const body = await r.json(); assert.equal(r.status, 201, JSON.stringify(body)); return body;
 };
+
+test('password login items use people locks and remain opaque in storage', async () => {
+    const secret = JSON.stringify({ version: 1, site: 'https://example.test', username: 'alice', password: 'secret-password', totp: '', notes: '' });
+    const encrypted = await locker.seal(secret, { lock: 'people', keys: [{ subject: { type: 'user', id: SUBJECT }, publicKey: t.people.get(SUBJECT).ecdhPublic }] });
+    const item = await create(encrypted, false, '?kind=login');
+    assert.equal(item.kind, 'login');
+    const stored = await t.db.one('SELECT kind,lock FROM locker_items WHERE id=$1', [item.id]);
+    assert.deepEqual(stored, { kind: 'login', lock: 'people' });
+    const bytes = new Uint8Array(await (await t.request('GET', `/api/v1/files/${item.id}/content`)).arrayBuffer());
+    assert.equal(new TextDecoder().decode(bytes).includes('secret-password'), false);
+    assert.equal(new TextDecoder().decode(await locker.open(bytes, { person: t.people.get(SUBJECT) })), secret);
+    assert.equal((await t.request('GET', '/api/v1/files')).status, 200);
+});
 test('WebCrypto stream → ciphertext API → download → authenticated opening, with private metadata', async () => {
     const file = new Blob([Buffer.alloc(2 * 1048576 + 93, 71)]);
     const meta = { name: 'private-name.pdf', type: 'application/pdf', size: file.size };

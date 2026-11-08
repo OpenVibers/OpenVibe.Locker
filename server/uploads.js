@@ -25,7 +25,7 @@ function createUploads({ service, sharing }) {
         const allowed = ['kind', 'bytes', 'parent', 'expires_in', 'download_limit', 'item_id'];
         if (!input || Array.isArray(input) || Object.keys(input).some((k) => !allowed.includes(k))) fail(400, 'locker.metadata.private', 'Only upload settings belong outside the envelope.');
         const { kind, bytes, parent, expires_in: expiresIn, download_limit: downloadLimit, item_id: itemId } = input;
-        if (!['file', 'folder', 'send', 'replace', 'reseal'].includes(kind)) fail(400, 'locker.kind', 'Choose file, folder, send, replace or reseal.');
+        if (!['file', 'folder', 'send', 'login', 'replace', 'reseal'].includes(kind)) fail(400, 'locker.kind', 'Choose file, folder, login, send, replace or reseal.');
         if (['replace', 'reseal'].includes(kind)) {
             if (!Number.isSafeInteger(revision) || revision < 1) fail(428, 'locker.revision.required', 'Send the item revision in If-Match.');
             const item = await service.owned(user, itemId);

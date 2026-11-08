@@ -32,7 +32,7 @@ async function createApp(options = {}) {
     app.use(helmet({ contentSecurityPolicy: { directives: {
         defaultSrc: ["'self'"], scriptSrc: ["'self'", "'unsafe-inline'", config.networkUrl, 'https://static.cloudflareinsights.com'], styleSrc: ["'self'", "'unsafe-inline'", config.networkUrl, 'https://fonts.googleapis.com'],
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'], imgSrc: ["'self'", 'data:', 'blob:', config.networkUrl],
-        connectSrc: ["'self'", config.networkUrl, 'https://openvibe.chat', 'https://billing.openvibe.network', 'https://openvibe.events', 'https://cloudflareinsights.com'],
+        connectSrc: ["'self'", config.networkUrl, 'https://openvibe.chat', 'https://billing.openvibe.network', 'https://openvibe.events', 'https://cloudflareinsights.com', 'https://api.pwnedpasswords.com'],
         workerSrc: ["'self'"], frameSrc: [config.networkUrl], frameAncestors: ["'none'"], objectSrc: ["'none'"], baseUri: ["'self'"],
         formAction: ["'self'", config.networkUrl], upgradeInsecureRequests: config.production ? [] : null,
     } }, crossOriginEmbedderPolicy: false, referrerPolicy: { policy: 'no-referrer' } }));
