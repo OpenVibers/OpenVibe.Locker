@@ -50,7 +50,8 @@ test('counts streamed parts, refuses oversized, short and out-of-range parts wit
     assert.equal((await put(u.id, 0, new Uint8Array(PART_SIZE + 1))).status, 413);
     assert.equal((await put(u.id, 0, new Uint8Array(9))).status, 400);
     assert.equal((await put(u.id, 2, new Uint8Array(9))).status, 400);
-    // Chunked HTTP has no Content-Length: the stream counter must enforce the final part bound too.
+    assert.equal((await put(u.id, 1, new Uint8Array(9))).status, 200);
+    // Even an immutable retry with no Content-Length must enforce the final part bound.
     const status = await new Promise((resolve, reject) => {
         const req = http.request(`${t.base}/api/v1/uploads/${u.id}/parts/1`, { method: 'PUT', headers: {
             Authorization: `Bearer ${SUBJECT}`, 'Content-Type': 'application/octet-stream', 'Transfer-Encoding': 'chunked',
@@ -58,7 +59,7 @@ test('counts streamed parts, refuses oversized, short and out-of-range parts wit
         req.on('error', reject); req.write(Buffer.alloc(10)); req.end();
     });
     assert.equal(status, 413);
-    assert.deepEqual((await (await t.request('GET', `/api/v1/uploads/${u.id}`)).json()).received_parts, []);
+    assert.deepEqual((await (await t.request('GET', `/api/v1/uploads/${u.id}`)).json()).received_parts, [1]);
     assert.equal((await complete(u.id)).status, 409);
 });
 test('abandoned sessions release quota and remove staging files; progress renews the deadline', async () => {

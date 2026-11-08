@@ -70,17 +70,16 @@ function createUploads({ service, sharing }) {
             if (!Number.isSafeInteger(n) || expected <= 0) fail(400, 'locker.upload.part', 'Part is outside the envelope.');
             if (length > PART_SIZE || length > expected) fail(413, 'locker.upload.part_size', 'The part is too large.');
             if (length != null && length !== expected) fail(400, 'locker.upload.length', 'The part length does not match.');
-            if (await t.maybe('SELECT part FROM locker_upload_parts WHERE upload_id=$1 AND part=$2', [id, n])) {
-                source.resume(); return; // A lost response can safely retry a committed part.
-            }
-            const file = await fs.open(fileFor(id), 'r+');
+            const received = await t.maybe('SELECT part FROM locker_upload_parts WHERE upload_id=$1 AND part=$2', [id, n]);
+            // Retry bodies are counted too, but an already committed part is never overwritten.
+            const file = received ? null : await fs.open(fileFor(id), 'r+');
             let count = 0;
             try {
                 // Do not destroy IncomingMessage on a length error; the caller must receive the 413.
                 for await (const chunk of source.iterator({ destroyOnReturn: false })) {
                     if (count + chunk.length > expected) fail(413, 'locker.upload.part_size', 'The part is too large.');
                     let offset = 0;
-                    while (offset < chunk.length) {
+                    while (file && offset < chunk.length) {
                         const { bytesWritten } = await file.write(chunk, offset, chunk.length - offset, n * PART_SIZE + count + offset);
                         if (!bytesWritten) throw new Error('Could not write the upload part.');
                         offset += bytesWritten;
@@ -88,10 +87,11 @@ function createUploads({ service, sharing }) {
                     count += chunk.length;
                 }
                 if (count !== expected) fail(400, 'locker.upload.length', 'The part length does not match.');
+                if (received) return;
                 await file.sync();
                 await t.exec('INSERT INTO locker_upload_parts(upload_id,part,bytes) VALUES ($1,$2,$3)', [id, n, count]);
                 await t.exec('UPDATE locker_uploads SET due_at=$2 WHERE id=$1', [id, due()]);
-            } finally { await file.close(); }
+            } finally { if (file) await file.close(); }
         });
         return { received: n };
     }
