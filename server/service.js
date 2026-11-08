@@ -47,14 +47,15 @@ function createService({ db, config, network, media, now = Date.now }) {
         }
         return subject;
     }
-    async function reserve(user, bytes, kind, old = null) {
+    async function reserve(user, bytes, kind) {
         const subject = await standing(user);
         if (!Number.isSafeInteger(bytes) || bytes < 8) fail(411, 'locker.length.required', 'Send Content-Length for the encrypted envelope.');
         if (bytes > maxWire) fail(413, 'locker.file.too_large', 'The encrypted file is too large.');
         await rate(`upload:${subject}`, config.uploadsPerHour);
         if (kind === 'send') await rate(`send:${subject}`, config.sendsPerHour);
         const id = randomUUID();
-        const held = Math.max(0, bytes - (old?.envelope_bytes || 0));
+        // A staged replacement is a real second ciphertext copy until it commits.
+        const held = bytes;
         await db.tx(async (t) => {
             const a = await account(subject, t);
             if (a.restricted || a.deleted) fail(403, 'locker.upload.restricted', 'Uploads are restricted for this account.');
@@ -156,7 +157,7 @@ function createService({ db, config, network, media, now = Date.now }) {
         const old = await owned(user, id);
         if (old.kind === 'send' || old.disabled) fail(409, 'locker.replace', 'This item cannot be changed.');
         if (revision !== old.revision) fail(412, 'locker.revision', 'The item changed. Open it again before saving.');
-        const upload = await reserve(user, bytes, old.kind, old);
+        const upload = await reserve(user, bytes, old.kind);
         try {
             const { header } = await receive(upload, source);
             if (header.lock !== 'people') fail(400, 'locker.lock', 'Drive items use a people lock.');

@@ -21,7 +21,7 @@ Nothing in this change deploys, changes DNS or accesses the host. Opus reviews t
    delivery subscriptions, Media tenant, service grants or migrations are missing. No contents are indexed or sent to AI.
 
 Storage settings: `LOCKER_QUOTA_BYTES` defaults to 5 GiB and includes reserved ciphertext; `LOCKER_MAX_FILE_BYTES`
-defaults to 2 GiB of plaintext in the browser. The server cannot see true sizes, so it enforces the corresponding
+defaults to 2 GiB of plaintext in the browser. Replacements reserve their full incoming size, so renaming/sharing requires temporary free quota. The server cannot see true sizes, so it enforces the corresponding
 maximum padded envelope size. `LOCKER_MIN_ACCOUNT_DAYS=7`, `LOCKER_UPLOADS_PER_HOUR=60`, `LOCKER_SENDS_PER_HOUR=20`.
 `LOCKER_ALLOWLIST_ONLY=true` additionally requires the subject in `LOCKER_UPLOAD_ALLOWLIST` (comma-separated).
 Network ban/deletion and age checks still apply. Local staff restrictions always apply.

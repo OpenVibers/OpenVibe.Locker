@@ -66,7 +66,7 @@ function createSharing({ service, network }) {
                     if (typeof req.body?.envelope === 'string') {
                         const bytes = Buffer.from(req.body.envelope, 'base64');
                         const info = service.inspect(bytes);
-                        const upload = await service.reserve(req.user, bytes.length, row.kind, row);
+                        const upload = await service.reserve(req.user, bytes.length, row.kind);
                         ctx.prepared = { upload, info, old: row };
                         await service.receive(upload, Readable.from(bytes));
                         await service.putMedia(upload);
@@ -93,7 +93,7 @@ function createSharing({ service, network }) {
     async function stage(user, id, source, bytes, revision) {
         const old = await service.owned(user, id);
         if (old.kind === 'send' || old.disabled || old.revision !== revision) fail(412, 'locker.revision', 'The item changed. Open it again.');
-        const upload = await service.reserve(user, bytes, old.kind, old);
+        const upload = await service.reserve(user, bytes, old.kind);
         let staged = false;
         try {
             const info = await service.receive(upload, source);

@@ -57,7 +57,7 @@ only enforce the corresponding padded size, since true sizes are encrypted.
 Accounts must be signed in, at least seven days old and not banned/deleted in Network's current
 `/internal/identity/resolve?subject_id=…&trust=1` response. Local moderation restrictions always apply.
 `LOCKER_ALLOWLIST_ONLY` can additionally restrict the launch cohort. PostgreSQL locks the account row to reserve
-quota before accepting an upload, including concurrent uploads. Defaults: 5 GiB per account, 2 GiB per file,
+quota before accepting an upload, including the full size of each staged replacement. Renaming or changing sharing needs enough free quota for the incoming encrypted copy until it commits. Defaults: 5 GiB per account, 2 GiB per file,
 60 uploads/hour, 20 Sends/hour. Server metadata contains the owner, IDs, padded/ciphertext sizes, times and access
 rules, never names or MIME types. Media sees only a private `file`, `application/octet-stream` and `locked.ovlk`.
 

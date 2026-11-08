@@ -124,8 +124,12 @@
         $('#item-description').textContent = `${meta.name} · ${size(meta.size)} · Opened on this device`;
         progress('Verified and opened.');
     }
+    function showStorage() {
+        if ($('#account') && me) $('#account').textContent = `${size(me.used_bytes)} of ${size(me.quota_bytes)} used${me.reserved_bytes ? ` · ${size(me.reserved_bytes)} uploading` : ''} · Up to ${size(me.max_file_bytes)} per file${me.eligible ? '' : ` · ${me.reason}`}`;
+    }
     async function refresh() {
         if (!me) return;
+        if ($('#account')) { me = await api('/api/v1/me'); showStorage(); }
         if (page.mode === 'file') {
             fileInfo = await api(`/api/v1/files/${page.id}`);
             document.querySelectorAll('[data-owner-only]').forEach((e) => { e.hidden = !fileInfo.can_edit; });
@@ -238,7 +242,7 @@
     state();
     try {
         me = await api('/api/v1/me'); window.OpenVibeLockerConfig.subject = me.subject;
-        if ($('#account')) $('#account').textContent = `${size(me.used_bytes)} of ${size(me.quota_bytes)} used · Up to ${size(me.max_file_bytes)} per file${me.eligible ? '' : ` · ${me.reason}`}`;
+        showStorage();
         await refresh();
         if (page.mode === 'staff') {
             const out = await api('/api/v1/staff/reports'); const box = $('#reports');

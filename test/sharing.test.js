@@ -9,8 +9,11 @@ test('a large staged reseal changes ciphertext and people access together; remov
         const created = await t.request('POST', '/api/v1/files', { body: original.bytes }); assert.equal(created.status, 201);
         const item = await created.json(); const path = `/api/v1/files/${item.id}`;
         const shared = await locker.rewrap(original.bytes, { credentials: { person: t.people.get(SUBJECT) }, add: [{ subject: { type: 'user', id: OTHER }, publicKey: t.people.get(OTHER).ecdhPublic }] });
+        t.config.quotaBytes = original.bytes.length + shared.bytes.length;
         let stage = await t.request('POST', `${path}/reseals`, { body: shared.bytes, headers: { 'If-Match': '"1"' } }); assert.equal(stage.status, 201, await stage.clone().text());
         const receipt = await stage.json();
+        assert.equal((await t.request('POST', `${path}/reseals`, { body: shared.bytes, headers: { 'If-Match': '"1"' } })).status, 413, 'uncommitted replacements reserve their full stored size');
+        assert.equal(await t.db.value('SELECT reserved_bytes FROM locker_accounts WHERE subject=$1', [SUBJECT]), shared.bytes.length);
         assert.equal((await t.request('GET', `${path}/content`, { user: OTHER })).status, 404);
         const members = [{ subject: { type: 'user', id: OTHER }, role: 'viewer', key_slot: shared.header.slots.people[1] }];
         let save = await t.request('PUT', `${path}/share`, { json: { members, envelope_ref: receipt.envelope_ref } }); assert.equal(save.status, 200, await save.clone().text());
