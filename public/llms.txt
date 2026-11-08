@@ -12,8 +12,17 @@ Never send plaintext, filenames, passwords, recovery words, private keys or a Se
 
 Use a Network user bearer token. Uploads require a live account at least 7 days old, without a ban or local upload restriction.
 The default storage allowance is 5 GiB; a file may contain up to 2 GiB, with padding overhead bounded separately.
-POST /api/v1/files takes a people-locked envelope with the owner's slot. GET lists the owner's files; DELETE /api/v1/files/:id removes one.
+For envelopes up to 90 MiB, POST /api/v1/files takes a people-locked envelope with the owner's slot. GET lists the owner's files; DELETE /api/v1/files/:id removes one.
 POST /api/v1/sends?expires_in=3600&download_limit=1 takes a link-locked envelope. The expiry range is 1 hour to 30 days.
 Anyone can GET /api/v1/sends/:id/content until expiry or the download-attempt limit. Keep the key in #k=, never in a query or request body.
 For people sharing, upload the new ciphertext to POST /api/v1/files/:id/reseals with If-Match, then PUT its envelope_ref and members to /api/v1/files/:id/share.
 GET /api/v1/account/export returns the ADR-033 manifest; download each envelope separately while authenticated.
+
+For larger envelopes (and all browser uploads), POST /api/v1/uploads with JSON {kind, bytes, parent?, expires_in?, download_limit?}.
+kind is file, folder or send. bytes is the complete ciphertext length. This reserves quota and returns {id, part_size:33554432}.
+PUT /api/v1/uploads/:id/parts/:n with application/octet-stream; zero-based parts are exactly 32 MiB except the last remaining bytes.
+GET /api/v1/uploads/:id returns received_parts; resume only missing parts. Successful parts extend the one-hour idle expiry.
+POST /api/v1/uploads/:id/complete validates the envelope, stores it in Media and returns the item. Retry completion safely for 24 hours.
+For replacement or sharing, initiate with kind replace or reseal plus item_id and If-Match. Send the same If-Match on completion.
+A reseal completion returns envelope_ref and header for PUT /api/v1/files/:id/share with the complete members list.
+Every ordinary JSON request is limited to 64 KiB at nginx. Prefer staged receipts over inline base64 envelopes.

@@ -68,14 +68,16 @@ function createService({ db, config, network, media, now = Date.now }) {
     async function queue(t, mediaId) {
         if (mediaId) await t.exec('INSERT INTO locker_gc(media_id,due_at) VALUES ($1,$2) ON CONFLICT DO NOTHING', [mediaId, iso()]);
     }
-    async function release(upload) {
-        await db.tx(async (t) => {
+    async function release(upload, expiredOnly = false) {
+        const removed = await db.tx(async (t) => {
             await account(upload.owner, t);
-            const r = await t.maybe('DELETE FROM locker_uploads WHERE id = $1 RETURNING *', [upload.id]);
+            const r = await t.maybe('DELETE FROM locker_uploads WHERE id = $1 AND ($2::boolean = false OR due_at <= $3) RETURNING *', [upload.id, expiredOnly, iso()]);
             if (!r) return;
             await t.exec('UPDATE locker_accounts SET reserved_bytes = reserved_bytes - $2 WHERE subject = $1', [r.owner, r.bytes]);
             await queue(t, r.media_id);
+            return true;
         });
+        if (expiredOnly && !removed) return;
         if (upload.file) await fs.rm(upload.file, { force: true });
     }
     async function receive(upload, source) {
@@ -115,10 +117,14 @@ function createService({ db, config, network, media, now = Date.now }) {
         const a = await account(upload.owner, t);
         if (a.restricted || a.deleted) fail(403, 'locker.upload.restricted', 'Uploads are restricted for this account.');
         const row = await t.maybe('DELETE FROM locker_uploads WHERE id = $1 RETURNING *', [upload.id]);
-        if (!row) fail(409, 'locker.upload.expired', 'The upload reservation expired. Try again.');
+        if (!row || Date.parse(row.due_at) <= now()) fail(409, 'locker.upload.expired', 'The upload reservation expired. Try again.');
         await t.exec('UPDATE locker_accounts SET used_bytes = used_bytes + $2, reserved_bytes = reserved_bytes - $3 WHERE subject = $1', [upload.owner, delta, row.bytes]);
     }
-    async function create(user, source, bytes, { kind = 'file', parent = null, expiresIn, downloadLimit } = {}) {
+    async function remember(t, upload, result) {
+        if (upload.resumable) await t.exec(`INSERT INTO locker_upload_results(id,owner,result,due_at) VALUES ($1,$2,$3::jsonb,$4)`,
+            [upload.id, upload.owner, JSON.stringify(result), new Date(now() + 86400000).toISOString()]);
+    }
+    async function create(user, source, bytes, { kind = 'file', parent = null, expiresIn, downloadLimit } = {}, prepared = null) {
         if (!['file', 'folder', 'send'].includes(kind)) fail(400, 'locker.kind', 'Choose a file, folder or Send.');
         let expires = null;
         if (kind === 'send') {
@@ -127,9 +133,9 @@ function createService({ db, config, network, media, now = Date.now }) {
             expires = new Date(now() + expiresIn * 1000).toISOString();
             if (parent) fail(400, 'locker.parent', 'Sends do not belong to folders.');
         }
-        const upload = await reserve(user, bytes, kind);
+        const upload = prepared?.upload || await reserve(user, bytes, kind);
         try {
-            const { header } = await receive(upload, source);
+            const { header } = prepared?.info || await receive(upload, source);
             if (kind === 'send' ? header.lock !== 'link' : header.lock !== 'people') fail(400, 'locker.lock', kind === 'send' ? 'Sends use a link lock.' : 'Drive items use a people lock.');
             if (kind !== 'send') checkPeople(header, upload.owner);
             await putMedia(upload);
@@ -148,18 +154,19 @@ function createService({ db, config, network, media, now = Date.now }) {
                     await shares.register(shareRef(id), { owner_subject: subjectRef(upload.owner), audience: 'people', lock: 'people' });
                     await t.exec('UPDATE shares SET reseal_nonce_base = $2 WHERE service = \'locker\' AND kind = \'files\' AND resource_id = $1', [id, header.nonce_base]);
                 }
+                await remember(t, upload, wire(r));
                 return r;
             });
             return wire(row);
         } finally { await release(upload); }
     }
-    async function replace(user, id, source, bytes, revision) {
+    async function replace(user, id, source, bytes, revision, prepared = null) {
         const old = await owned(user, id);
         if (old.kind === 'send' || old.disabled) fail(409, 'locker.replace', 'This item cannot be changed.');
         if (revision !== old.revision) fail(412, 'locker.revision', 'The item changed. Open it again before saving.');
-        const upload = await reserve(user, bytes, old.kind);
+        const upload = prepared?.upload || await reserve(user, bytes, old.kind);
         try {
-            const { header } = await receive(upload, source);
+            const { header } = prepared?.info || await receive(upload, source);
             if (header.lock !== 'people') fail(400, 'locker.lock', 'Drive items use a people lock.');
             await putMedia(upload);
             return await db.tx(async (t) => {
@@ -172,6 +179,7 @@ function createService({ db, config, network, media, now = Date.now }) {
                 const r = await t.one('UPDATE locker_items SET media_id=$2,envelope_bytes=$3,header=$4::jsonb,revision=revision+1,updated_at=$5 WHERE id=$1 RETURNING *', [id, upload.media_id, bytes, JSON.stringify(header), iso()]);
                 await t.exec('UPDATE shares SET reseal_nonce_base=$2, revision=revision+1 WHERE service=\'locker\' AND kind=\'files\' AND resource_id=$1', [id, header.nonce_base]);
                 for (const slot of header.slots.people) await t.exec('UPDATE share_members SET key_slot=$3::jsonb WHERE service=\'locker\' AND kind=\'files\' AND resource_id=$1 AND subject=$2::jsonb', [id, JSON.stringify(slot.subject), JSON.stringify(slot)]);
+                await remember(t, upload, wire(r));
                 return wire(r);
             });
         } finally { await release(upload); }
@@ -231,20 +239,21 @@ function createService({ db, config, network, media, now = Date.now }) {
             for (const row of expired) { await account(row.owner, t); await removeIn(t, row); }
         });
         const abandoned = await db.many('SELECT * FROM locker_uploads WHERE due_at<=$1 ORDER BY due_at LIMIT 100', [iso()]);
-        for (const u of abandoned) await release({ ...u, file: path.join(tmp, `${u.id}.ovlk`) });
+        for (const u of abandoned) await release({ ...u, file: path.join(tmp, `${u.id}.ovlk`) }, true);
         const garbage = await db.many('SELECT * FROM locker_gc WHERE due_at<=$1 ORDER BY due_at LIMIT 100', [iso()]);
         for (const g of garbage) {
             try { await media.delete(g.media_id); await db.exec('DELETE FROM locker_gc WHERE media_id=$1', [g.media_id]); }
             catch { await db.exec('UPDATE locker_gc SET attempts=attempts+1,due_at=$2 WHERE media_id=$1', [g.media_id, new Date(now() + Math.min(3600000, 30000 * 2 ** Math.min(g.attempts, 7))).toISOString()]); }
         }
+        await db.exec('DELETE FROM locker_upload_results WHERE due_at<=$1', [iso()]);
         await db.exec('DELETE FROM locker_rates WHERE window_start<$1', [now() - 2 * 3600000]);
     }
     async function nextDue() {
         return db.value(`SELECT MIN(due) FROM (SELECT MIN(expires_at) due FROM locker_items WHERE kind='send' AND deleted_at IS NULL
-            UNION ALL SELECT MIN(due_at) FROM locker_gc UNION ALL SELECT MIN(due_at) FROM locker_uploads) q`);
+            UNION ALL SELECT MIN(due_at) FROM locker_upload_results UNION ALL SELECT MIN(due_at) FROM locker_gc UNION ALL SELECT MIN(due_at) FROM locker_uploads) q`);
     }
     return { db, config, now, iso, wire, maxPadded, maxWire, rate, standing, account, owned, create, replace, list, view, download, remove,
-        removeIn, sweep, nextDue, reserve, receive, putMedia, release, queue, ready, checkPeople, inspect: (b) => headerInfo(b, b.length, maxPadded),
+        removeIn, sweep, nextDue, remember, reserve, receive, putMedia, release, queue, ready, checkPeople, inspect: (b) => headerInfo(b, b.length, maxPadded),
         flushShares: () => shares?.flush(), setShares(value) { shares = value; } };
 }
 module.exports = { createService, userId, subjectRef, shareRef, ID };

@@ -24,6 +24,7 @@ function createAccountDataForLocker(service) {
                 // Keep the durable cleanup receipt until its temporary file and Media copy are erased.
                 await t.exec('UPDATE locker_uploads SET bytes=0,due_at=$2 WHERE owner=$1', [subject, service.iso()]);
                 await t.exec('UPDATE locker_accounts SET reserved_bytes=0 WHERE subject=$1', [subject]);
+                await t.exec('DELETE FROM locker_upload_results WHERE owner=$1', [subject]);
                 await t.exec('DELETE FROM locker_rates WHERE bucket=$1 OR bucket=$2', [`upload:${subject}`, `send:${subject}`]);
                 const ref = JSON.stringify({ type: 'user', id: subject });
                 await t.exec('DELETE FROM share_members WHERE subject=$1::jsonb OR (service=\'locker\' AND resource_id IN (SELECT id::text FROM locker_items WHERE owner=$2))', [ref, subject]);

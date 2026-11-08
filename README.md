@@ -48,11 +48,28 @@ is 32 MiB. Opening a list label reads only its first authenticated chunk and can
 
 ## Storage and access
 
-Every POST body must be `application/octet-stream` with a complete envelope and Content-Length. The server counts
+Single-request ciphertext routes accept `application/octet-stream` with Content-Length up to **90 MiB**. The server counts
 actual received bytes, bounds the header at 64 KiB and uses `openvibe-sdk/locker/server.inspectEnvelopePrefix` to
 validate shape and the exact expected ciphertext length. Drive starts with the owner's people slot only. Sends
 are link locks. Unknown plaintext metadata is rejected. The browser enforces the true file limit; the server can
 only enforce the corresponding padded size, since true sizes are encrypted.
+
+Browser uploads use resumable sessions, so every request fits Cloudflare's 100 MB limit:
+
+1. `POST /api/v1/uploads` with JSON `{ kind: "file" | "folder" | "send", bytes, parent?, expires_in?, download_limit? }`.
+   `bytes` is the entire encrypted envelope size; this reserves quota and returns `{ id, part_size: 33554432 }`.
+2. `PUT /api/v1/uploads/:id/parts/:n` with an octet-stream slice, numbered from zero. Each part is exactly
+   32 MiB except the last, which is exactly the remaining bytes. Received parts are immutable and retryable.
+3. `GET /api/v1/uploads/:id` lists `received_parts`. Resume only the missing parts, including after a server restart.
+4. `POST /api/v1/uploads/:id/complete` checks all parts and the envelope, stores it in Media and returns the item.
+   Completion retries return the same result for 24 hours; GET also returns that result with `state: "complete"`.
+   A session expires after one hour without a new part. Expired staging files and reservations are removed by the due job.
+
+Use `kind: "replace"` or `"reseal"` with `item_id` and the item's `If-Match` revision on initiation **and completion**.
+Replace returns the updated item; reseal returns the receipt for the Share API below. Completion rechecks standing,
+revision and recipients. The worker retries lost part/completion responses and queries received parts before retrying.
+The encrypted OPFS file and Send key remain with that worker; closing the page requires starting a new browser upload.
+A server interruption during Media completion leaves the reservation for expiry cleanup; retry a new session after expiry.
 
 Accounts must be signed in, at least seven days old and not banned/deleted in Network's current
 `/internal/identity/resolve?subject_id=…&trust=1` response. Local moderation restrictions always apply.
@@ -63,13 +80,14 @@ rules, never names or MIME types. Media sees only a private `file`, `application
 
 For sharing a large file, seal a new envelope in the browser for the owner and all remaining recipients, then:
 
-1. `POST /api/v1/files/:id/reseals` with the ciphertext and `If-Match: "<item revision>"`.
+1. Complete a resumable `reseal` session with `item_id` and `If-Match: "<item revision>"`.
+   Envelopes up to 90 MiB can also use `POST /api/v1/files/:id/reseals`.
 2. `PUT /api/v1/files/:id/share` with `{ members: [{ subject, role: "viewer", key_slot }], envelope_ref }`, preferably
    with the Share GET's ETag in `If-Match`. The SDK checks recipients and fresh-key removal; Locker checks that the
    staged upload belongs to this owner, file and revision. The Media reference, quota and ACL commit together.
 3. An unconsumed receipt expires after one hour. Old objects and abandoned uploads are queued for erasure.
 
-Small callers may continue using the existing inline base64 `envelope` Share API (8 MiB). Large reseals carry a
+The nginx vhost limits ordinary JSON requests to 64 KiB. Use staged receipts for sharing; only tiny envelopes fit inline. Large reseals carry a
 short receipt, never a giant JSON body. Names and every content byte are re-sealed locally; a departing member's
 old key cannot open the new envelope. Recipients may still keep a prior copy. Folder membership is organizational;
 sharing a folder does not grant its children. Transfer and the password-manager phase are outside v1.

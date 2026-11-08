@@ -90,16 +90,23 @@ function createSharing({ service, network }) {
         } catch (e) { next(e); }
         finally { if (ctx.prepared) await service.release(ctx.prepared.upload); }
     }
-    async function stage(user, id, source, bytes, revision) {
+    async function stage(user, id, source, bytes, revision, prepared = null) {
         const old = await service.owned(user, id);
         if (old.kind === 'send' || old.disabled || old.revision !== revision) fail(412, 'locker.revision', 'The item changed. Open it again.');
-        const upload = await service.reserve(user, bytes, old.kind);
+        const upload = prepared?.upload || await service.reserve(user, bytes, old.kind);
         let staged = false;
         try {
-            const info = await service.receive(upload, source);
+            const info = prepared?.info || await service.receive(upload, source);
             if (info.header.lock !== 'people') fail(400, 'locker.lock', 'Drive items use a people lock.');
             await service.putMedia(upload);
-            await db.exec('UPDATE locker_uploads SET total_bytes=$2,target=$3,revision=$4,prefix=$5 WHERE id=$1', [upload.id, bytes, id, revision, info.prefix]);
+            await db.tx(async (t) => {
+                const a = await service.account(upload.owner, t);
+                if (a.deleted || a.restricted) fail(403, 'locker.upload.restricted', 'Uploads are restricted for this account.');
+                const held = await t.maybe('SELECT * FROM locker_uploads WHERE id=$1 FOR UPDATE', [upload.id]);
+                if (!held || Date.parse(held.due_at) <= service.now()) fail(409, 'locker.upload.expired', 'The upload expired.');
+                await t.exec('UPDATE locker_uploads SET total_bytes=$2,target=$3,revision=$4,prefix=$5 WHERE id=$1', [upload.id, bytes, id, revision, info.prefix]);
+                await service.remember(t, upload, { envelope_ref: upload.id, header: info.header });
+            });
             staged = true;
             return { envelope_ref: upload.id, header: info.header };
         } finally {

@@ -205,7 +205,8 @@
               "type": "integer"
             }
           }
-        ]
+        ],
+        "description": "Single-request envelopes are limited to 90 MiB. Use /api/v1/uploads for larger envelopes."
       }
     },
     "/api/v1/files/{id}": {
@@ -437,7 +438,8 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "description": "Single-request envelopes are limited to 90 MiB. Use /api/v1/uploads for larger envelopes."
       }
     },
     "/api/v1/files/{id}/content": {
@@ -790,7 +792,8 @@
               "type": "integer"
             }
           }
-        ]
+        ],
+        "description": "Single-request envelopes are limited to 90 MiB. Use /api/v1/uploads for larger envelopes."
       }
     },
     "/api/v1/sends/{id}": {
@@ -1179,7 +1182,8 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "description": "Single-request envelopes are limited to 90 MiB. Use /api/v1/uploads for larger envelopes."
       }
     },
     "/api/v1/files/{id}/share": {
@@ -2127,6 +2131,223 @@
           }
         ]
       }
+    },
+    "/api/v1/uploads": {
+      "post": {
+        "summary": "Reserve quota for a resumable ciphertext upload",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required original item revision for replace/reseal initiation and completion, e.g. \"2\"."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Reserved for one hour; each newly received part renews the deadline.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSession"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Account ineligible or restricted"
+          },
+          "413": {
+            "description": "File or quota limit exceeded"
+          },
+          "428": {
+            "description": "Replacement/reseal needs If-Match"
+          }
+        }
+      }
+    },
+    "/api/v1/uploads/{id}": {
+      "get": {
+        "summary": "List received parts or retrieve a completed result",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-only upload status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSession"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing, expired or another account\u2019s upload"
+          }
+        }
+      }
+    },
+    "/api/v1/uploads/{id}/parts/{n}": {
+      "put": {
+        "summary": "Stream an immutable, retryable ciphertext part at its offset",
+        "description": "Zero-based parts are exactly 32 MiB except the final remaining bytes. Actual streamed bytes are counted. Missing Content-Length is supported. Received parts are never overwritten.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Part received or already received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "received": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid part number or short body"
+          },
+          "413": {
+            "description": "Part exceeds its expected size"
+          },
+          "409": {
+            "description": "Upload is completing"
+          },
+          "404": {
+            "description": "Upload missing or expired"
+          }
+        }
+      }
+    },
+    "/api/v1/uploads/{id}/complete": {
+      "post": {
+        "summary": "Validate and commit a fully received envelope",
+        "description": "Checks all parts, envelope header, recipients and standing. Creates an item, replaces the If-Match item or returns a reseal receipt. Safe to retry: successful results are retained for 24 hours. A simultaneous completion returns locker.upload.busy (409); query status and retry. Invalid envelopes discard the session.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required original item revision for replace/reseal initiation and completion, e.g. \"2\"."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Created/replaced item, or {envelope_ref, header} for reseal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid envelope or recipients"
+          },
+          "403": {
+            "description": "Account no longer eligible"
+          },
+          "409": {
+            "description": "Missing parts or completion still running"
+          },
+          "412": {
+            "description": "Item revision changed or If-Match differs"
+          },
+          "404": {
+            "description": "Upload missing or expired"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2134,6 +2355,97 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "UploadStart": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "bytes"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "file",
+              "folder",
+              "send",
+              "replace",
+              "reseal"
+            ]
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 8,
+            "description": "Complete ciphertext envelope length, including padding and framing."
+          },
+          "parent": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "item_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Required for replace and reseal."
+          },
+          "expires_in": {
+            "type": "integer",
+            "minimum": 3600,
+            "maximum": 2592000
+          },
+          "download_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          }
+        }
+      },
+      "UploadSession": {
+        "type": "object",
+        "required": [
+          "id",
+          "part_size"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "part_size": {
+            "type": "integer",
+            "enum": [
+              33554432
+            ]
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "received_parts": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "completing",
+              "complete"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "type": "object",
+            "description": "Original item or reseal receipt, available for 24 hours after successful completion."
+          }
+        }
       }
     }
   }

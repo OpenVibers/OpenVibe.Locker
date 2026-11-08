@@ -54,7 +54,21 @@
             };
             worker.postMessage(data, data.stream ? [data.stream] : []);
         });
-        return { ...result, release() { worker.postMessage({ type: 'release' }); } };
+        return { ...result,
+            upload(options, revision) {
+                return new Promise((resolve, reject) => {
+                    worker.onerror = () => reject(new Error('The upload worker could not finish.'));
+                    worker.onmessage = ({ data: out }) => {
+                        if (out.type === 'upload-progress') progress(`Uploading encrypted bytes · ${size(out.bytes)}`);
+                        if (out.type === 'retry') progress('Connection interrupted. Resuming encrypted upload…');
+                        if (out.type === 'error') reject(new Error(out.message));
+                        if (out.type === 'uploaded') resolve(out.result);
+                    };
+                    worker.postMessage({ type: 'upload', options, revision });
+                });
+            },
+            release() { worker.postMessage({ type: 'release' }); },
+        };
     }
     async function uploadFile(file, opts = {}) {
         uploadsAllowed();
@@ -63,11 +77,10 @@
         const meta = { name: file.name || opts.name || 'Private note', type: file.type || 'application/octet-stream', size: file.size, folder: !!opts.folder };
         const locked = await sealed({ file, meta, lock: send ? 'link' : 'people', keys: send ? undefined : await ownKeys() });
         try {
-            const query = new URLSearchParams(send ? { expires_in: opts.expires } : { kind: opts.folder ? 'folder' : 'file' });
-            if (send && opts.limit) query.set('download_limit', opts.limit);
-            if (!send && opts.parent) query.set('parent', opts.parent);
             progress('Uploading encrypted bytes…');
-            const item = await api(`/api/v1/${send ? 'sends' : 'files'}?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: locked.file });
+            const item = await locked.upload(send ? { kind: 'send', expires_in: Number(opts.expires),
+                ...(opts.limit ? { download_limit: Number(opts.limit) } : {}) }
+                : { kind: opts.folder ? 'folder' : 'file', ...(opts.parent ? { parent: opts.parent } : {}) });
             names.set(item.id, meta.name);
             progress('Saved. Only encrypted bytes left this device.');
             if (send) {
@@ -209,8 +222,7 @@
                     const opened = await openFile(page.id);
                     const encrypted = await sealed({ stream: opened.stream, meta: opened.meta, lock: 'people', keys });
                     try {
-                        return await api(`/api/v1/files/${page.id}/reseals`, { method: 'POST', body: encrypted.file,
-                            headers: { 'Content-Type': 'application/octet-stream', 'If-Match': `"${info.revision}"` } });
+                        return await encrypted.upload({ kind: 'reseal', item_id: page.id }, info.revision);
                     } finally { encrypted.release(); }
                 },
             });
@@ -234,7 +246,7 @@
         const name = data.get('name').trim(); if (!name) throw new Error('Give this item a name.');
         const encrypted = await sealed({ stream: opened.stream, meta: { ...opened.meta, name }, lock: 'people', keys });
         try {
-            await api(`/api/v1/files/${page.id}`, { method: 'PUT', body: encrypted.file, headers: { 'Content-Type': 'application/octet-stream', 'If-Match': `"${fileInfo.revision}"` } });
+            await encrypted.upload({ kind: 'replace', item_id: page.id }, fileInfo.revision);
             $('#file-name').textContent = name; progress('Renamed inside the lock.');
         } finally { encrypted.release(); }
     });

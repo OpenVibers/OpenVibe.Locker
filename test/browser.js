@@ -18,6 +18,7 @@ const { boot, SUBJECT, OTHER, locker } = require('./helpers');
     t.network.backups.set(SUBJECT, { passphrase: { envelope: Buffer.from(backup.bytes).toString('base64'), format: 'locker.envelope.v1' } });
     const pub = await locker.exportPersonKeys(t.people.get(SUBJECT));
     const errors = [], badRequests = [], traffic = [];
+    let droppedPart = false, droppedCompletion = false, resumed = false;
     async function pageFor(width, scheme, signed = false) {
         const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme,
             deviceScaleFactor: 1, ...(signed ? { extraHTTPHeaders: { Authorization: `Bearer ${SUBJECT}` } } : {}) });
@@ -33,10 +34,23 @@ const { boot, SUBJECT, OTHER, locker } = require('./helpers');
             await route.fulfill({ status: 200, contentType: type === 'script' ? 'application/javascript' : 'application/json', body: type === 'script' ? '' : JSON.stringify(json),
                 headers: { 'Access-Control-Allow-Origin': t.base, 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Headers': 'authorization,content-type,x-requested-with' } });
         });
+        await context.route(`${t.base}/api/v1/uploads/**`, async (route) => {
+            const request = route.request();
+            if (request.method() === 'GET' && droppedPart) resumed = true;
+            const dropPart = !droppedPart && request.method() === 'PUT' && request.url().includes('/parts/');
+            const dropCompletion = !droppedCompletion && request.method() === 'POST' && request.url().endsWith('/complete');
+            if (dropPart || dropCompletion) {
+                const response = await route.fetch();
+                assert.equal(response.status(), 200);
+                if (dropPart) droppedPart = true; else droppedCompletion = true;
+                return route.abort('connectionreset');
+            }
+            return route.continue();
+        });
         const page = await context.newPage();
         page.on('pageerror', (e) => errors.push(e.message));
         page.on('console', (m) => { if (m.type() === 'error' && /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
-        page.on('request', (r) => {
+        context.on('request', (r) => {
             traffic.push(r.url() + '\n' + (r.postData() || '') + '\n' + (r.headers().referer || ''));
             if (r.url().startsWith(t.base) && /[?&]k=|#k=/.test(r.url())) badRequests.push(r.url());
         });
@@ -65,7 +79,8 @@ const { boot, SUBJECT, OTHER, locker } = require('./helpers');
         await page.waitForFunction(() => document.querySelector('#notice.error')?.textContent || [...document.querySelectorAll('main a')].some(a => a.textContent === 'browser-private.txt'), { timeout: 60000 });
         assert.equal(await page.locator('#notice').textContent(), '', 'upload error');
         await page.getByRole('link', { name: 'browser-private.txt', exact: true }).waitFor({ timeout: 5000 });
-        console.log('Browser worker upload passed.');
+        assert.ok(droppedPart && droppedCompletion && resumed, 'worker resumes a lost part response and retries completion');
+        console.log('Browser worker upload and connection-drop recovery passed.');
         const response = await t.request('GET', '/api/v1/files'); const { items } = await response.json(); assert.equal(items.length, 1);
         const encrypted = new Uint8Array(await (await t.request('GET', `/api/v1/files/${items[0].id}/content`)).arrayBuffer());
         const plain = await locker.open(encrypted, { person: t.people.get(SUBJECT) });

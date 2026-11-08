@@ -13,6 +13,7 @@ const { createNetwork } = require('./network');
 const { createMedia } = require('./media');
 const { createService, userId, ID } = require('./service');
 const { createSharing } = require('./sharing');
+const { createUploads, SINGLE_LIMIT } = require('./uploads');
 const { createAccountDataForLocker } = require('./account-data');
 const { fail, wrap } = require('./errors');
 async function createApp(options = {}) {
@@ -22,6 +23,7 @@ async function createApp(options = {}) {
     const media = options.media || createMedia(config);
     const service = createService({ db, config, network, media, now: options.now });
     const sharing = createSharing({ service, network });
+    const uploads = createUploads({ service, sharing });
     const accountData = createAccountDataForLocker(service);
     const sso = options.sso || createSsoClient({ site: 'locker', baseUrl: config.baseUrl, clientId: config.clientId, clientSecret: config.clientSecret,
         networkUrl: config.networkUrl, networkInternalUrl: config.networkInternalUrl, secureCookies: config.secureCookies, httpOnlyAccess: true });
@@ -74,6 +76,28 @@ async function createApp(options = {}) {
         const returnTo = `${config.baseUrl}/auth/login?next=${encodeURIComponent('/recovery')}`;
         res.redirect(`${config.networkUrl}/login?reauth=1&return=${encodeURIComponent(returnTo)}`);
     });
+    const revisionOf = (req) => Number(String(req.headers['if-match'] || '').replaceAll('"', ''));
+    const singleLength = (req) => {
+        const bytes = Number(req.headers['content-length']);
+        if (!Number.isSafeInteger(bytes) || bytes < 8) fail(411, 'locker.length.required', 'Send Content-Length for the encrypted envelope.');
+        if (bytes > SINGLE_LIMIT) fail(413, 'locker.upload.chunked_required', 'Use /api/v1/uploads for envelopes over 90 MiB.');
+        return bytes;
+    };
+    app.post('/api/v1/uploads', wrap(async (req, res) => {
+        auth(req); res.status(201).json(await uploads.start(req.user, req.body, revisionOf(req)));
+    }));
+    app.get('/api/v1/uploads/:id', wrap(async (req, res) => {
+        auth(req); res.json(await uploads.status(req.user, req.params.id));
+    }));
+    app.put('/api/v1/uploads/:id/parts/:n', wrap(async (req, res) => {
+        auth(req);
+        if (req.headers['content-type'] !== 'application/octet-stream') fail(415, 'locker.envelope.required', 'Send encrypted bytes.');
+        const length = req.headers['content-length'] === undefined ? null : Number(req.headers['content-length']);
+        res.json(await uploads.part(req.user, req.params.id, req.params.n, req, length));
+    }));
+    app.post('/api/v1/uploads/:id/complete', wrap(async (req, res) => {
+        auth(req); res.json(await uploads.complete(req.user, req.params.id, revisionOf(req)));
+    }));
     for (const [plural, kind] of [['files', 'file'], ['sends', 'send']]) {
         const send = kind === 'send';
         app.get(`/api/v1/${plural}`, wrap(async (req, res) => { auth(req); res.json(await service.list(req.user, kind, req.query)); }));
@@ -82,7 +106,7 @@ async function createApp(options = {}) {
             if (req.headers['content-type'] !== 'application/octet-stream') fail(415, 'locker.envelope.required', 'Send an application/octet-stream envelope.');
             const allowed = send ? ['expires_in', 'download_limit'] : ['kind', 'parent'];
             if (Object.keys(req.query).some((k) => !allowed.includes(k))) fail(400, 'locker.metadata.private', 'Filenames and content details belong inside the encrypted envelope.');
-            const out = await service.create(req.user, req, Number(req.headers['content-length']), { kind: send ? 'send' : req.query.kind || 'file', parent: req.query.parent || null,
+            const out = await service.create(req.user, req, singleLength(req), { kind: send ? 'send' : req.query.kind || 'file', parent: req.query.parent || null,
                 expiresIn: Number(req.query.expires_in), downloadLimit: req.query.download_limit === undefined ? null : Number(req.query.download_limit) });
             res.status(201).json(out);
         }));
@@ -115,14 +139,14 @@ async function createApp(options = {}) {
         if (req.headers['content-type'] !== 'application/octet-stream') fail(415, 'locker.envelope.required', 'Send an encrypted envelope.');
         const revision = Number(String(req.headers['if-match'] || '').replaceAll('"', ''));
         if (!Number.isSafeInteger(revision) || revision < 1) fail(428, 'locker.revision.required', 'Send the item revision in If-Match.');
-        res.json(await service.replace(req.user, req.params.id, req, Number(req.headers['content-length']), revision));
+        res.json(await service.replace(req.user, req.params.id, req, singleLength(req), revision));
     }));
     app.post('/api/v1/files/:id/reseals', wrap(async (req, res) => {
         auth(req);
         if (req.headers['content-type'] !== 'application/octet-stream') fail(415, 'locker.envelope.required', 'Send an encrypted envelope.');
         const revision = Number(String(req.headers['if-match'] || '').replaceAll('"', ''));
         if (!Number.isSafeInteger(revision) || revision < 1) fail(428, 'locker.revision.required', 'Send the item revision in If-Match.');
-        res.status(201).json(await sharing.stage(req.user, req.params.id, req, Number(req.headers['content-length']), revision));
+        res.status(201).json(await sharing.stage(req.user, req.params.id, req, singleLength(req), revision));
     }));
     app.get('/api/v1/account/export', wrap(async (req, res) => res.json(await accountData.exportPart(auth(req)))));
     app.delete('/api/v1/account', wrap(async (req, res) => {
