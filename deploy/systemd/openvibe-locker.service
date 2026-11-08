@@ -5,13 +5,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=openvibe
-Group=openvibe
-WorkingDirectory=/opt/openvibe/OpenVibe.Locker
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/openvibe.locker
 Environment=NODE_ENV=production
 Environment=PORT=5145
 Environment=HOST=127.0.0.1
-Environment=LOCKER_DATA_DIR=/var/lib/openvibe/locker
+Environment=LOCKER_DATA_DIR=/var/lib/openvibe-locker
 EnvironmentFile=/etc/openvibe/locker.env
 ExecStart=/usr/bin/node server/index.js
 Restart=on-failure
@@ -22,7 +22,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/openvibe/locker
+ReadWritePaths=/var/lib/openvibe-locker
 UMask=0077
 
 [Install]
