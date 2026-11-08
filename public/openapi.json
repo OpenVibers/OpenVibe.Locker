@@ -2371,6 +2371,7 @@
             "enum": [
               "file",
               "folder",
+              "login",
               "send",
               "replace",
               "reseal"

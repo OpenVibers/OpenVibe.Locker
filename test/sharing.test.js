@@ -2,6 +2,18 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { boot, SUBJECT, OTHER, locker } = require('./helpers');
+test('password logins cannot be shared through the generic Drive share API', async () => {
+    const t = await boot();
+    try {
+        const envelope = await t.envelope('private login');
+        const created = await t.request('POST', '/api/v1/files?kind=login', { body: envelope.bytes });
+        assert.equal(created.status, 201);
+        const item = await created.json();
+        const response = await t.request('PUT', `/api/v1/files/${item.id}/share`, { json: { members: [] } });
+        assert.equal(response.status, 409);
+        assert.equal((await response.json()).code, 'locker.login.private');
+    } finally { await t.close(); }
+});
 test('a large staged reseal changes ciphertext and people access together; removal rotates the key', async () => {
     const t = await boot({ config: { quotaBytes: 60 * 1024 ** 2 } });
     try {

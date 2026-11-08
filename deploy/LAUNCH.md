@@ -38,5 +38,6 @@ Browser capabilities: OPFS keeps large encrypted upload staging out of heap. Wit
 chunk verifies; smaller files work through a Blob download. Passkey setup requires WebAuthn PRF and recovery is always
 available through the saved kit. Only a credential id and PRF input are kept locally, bound to the account and origin.
 
-Known product boundary: folder sharing does not recursively grant access to children; share each file. Ownership
-transfer, password manager, blind fill, Photos and Scanner are later phases. A shared item is a viewer-only file.
+Known product boundary: folder sharing does not recursively grant access to children; share each file. The Passwords
+page stores logins as encrypted `login` items; the server cannot inspect their contents. Ownership transfer, blind fill,
+Photos and Scanner remain later phases. A shared item is a viewer-only file.

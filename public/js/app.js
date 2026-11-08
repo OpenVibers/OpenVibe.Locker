@@ -80,7 +80,7 @@
             progress('Uploading encrypted bytes…');
             const item = await locked.upload(send ? { kind: 'send', expires_in: Number(opts.expires),
                 ...(opts.limit ? { download_limit: Number(opts.limit) } : {}) }
-                : { kind: opts.folder ? 'folder' : 'file', ...(opts.parent ? { parent: opts.parent } : {}) });
+                : { kind: opts.login ? 'login' : opts.folder ? 'folder' : 'file', ...(opts.parent ? { parent: opts.parent } : {}) });
             names.set(item.id, meta.name);
             progress('Saved. Only encrypted bytes left this device.');
             if (send) {
@@ -148,7 +148,7 @@
             document.querySelectorAll('[data-owner-only]').forEach((e) => { e.hidden = !fileInfo.can_edit; });
             return;
         }
-        if (!['drive', 'sends', 'shared'].includes(page.mode)) return;
+        if (!['drive', 'sends', 'shared', 'passwords'].includes(page.mode)) return;
         if (page.mode === 'shared') {
             const result = await api('/api/v1/shared-with-me');
             items = result.items.map((r) => ({ id: r.ref.id, kind: 'file' }));
@@ -162,6 +162,11 @@
                 items.push(...more.items); cursor = more.items.length === 100 ? more.next_cursor : null;
             }
         }
+        if (page.mode === 'passwords') {
+            items = items.filter((i) => i.kind === 'login');
+            if (L.state().unlocked) for (const item of items) { try { await readLogin(item.id); } catch (e) { notice(`Could not open a saved login: ${e.message}`, true); } }
+            return drawLogins();
+        }
         drawItems();
         if (['drive', 'shared'].includes(page.mode) && L.state().unlocked) {
             for (const item of items) {
@@ -174,7 +179,7 @@
     function drawItems() {
         const box = $('#items'); if (!box) return;
         box.replaceChildren();
-        const visible = page.mode === 'drive' ? items.filter((i) => (i.parent || '') === currentFolder) : items;
+        const visible = page.mode === 'drive' ? items.filter((i) => i.kind !== 'login' && (i.parent || '') === currentFolder) : items;
         if (!visible.length) box.append(make('p', page.mode === 'sends' ? 'No Sends yet. Create one above when you have something to share.' : 'No locked items here yet.', 'empty'));
         for (const item of visible) {
             const row = make('div', null, 'item-row'); const description = make('div');
@@ -198,16 +203,70 @@
             const home = make('a', currentFolder ? '← Back to Drive' : 'Drive'); home.href = '/drive'; $('#folders').replaceChildren(home);
         }
     }
+    const loginRecords = new Map();
+    async function readBytes(stream) { const response = new Response(stream); return response.arrayBuffer(); }
+    async function readLogin(id) {
+        if (loginRecords.has(id)) return loginRecords.get(id);
+        const opened = await openFile(id); const data = JSON.parse(new TextDecoder().decode(await readBytes(opened.stream)));
+        if (!data || data.version !== 1 || typeof data.site !== 'string' || typeof data.password !== 'string') throw new Error('This encrypted login has invalid contents.');
+        loginRecords.set(id, data); return data;
+    }
+    function drawLogins() {
+        const box = $('#items'); if (!box) return; box.replaceChildren();
+        if (!L.state().unlocked) { box.append(make('p', 'Unlock your locker to view saved logins.')); return; }
+        const search = ($('#login-search')?.value || '').toLocaleLowerCase();
+        for (const item of items) {
+            const data = loginRecords.get(item.id); if (!data || !`${data.site} ${data.username} ${data.notes}`.toLocaleLowerCase().includes(search)) continue;
+            const row = make('article', null, 'item-row'); const url = new URL(data.site);
+            const title = make('h3', `${url.hostname.slice(0, 1).toUpperCase()} · ${url.hostname}`); const details = make('p', data.username || 'No username'); row.append(title, details);
+            row.append(action('Edit', async () => { const form = $('#login-form'); for (const key of ['site', 'username', 'password', 'totp', 'notes']) form.elements[key].value = key === 'site' ? data.site : data[key] || ''; form.dataset.edit = item.id; form.querySelector('button.primary').textContent = 'Update encrypted login'; form.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
+            row.append(action('Copy password', async () => { await navigator.clipboard.writeText(data.password); notice('Password copied.'); setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000); }));
+            if (data.totp) {
+                const timer = make('p', 'TOTP · generating'); timer.dataset.totp = data.totp; row.append(timer);
+                const bar = make('progress'); bar.max = 30; bar.value = 30 - Math.floor(Date.now() / 1000) % 30; bar.setAttribute('aria-label', 'TOTP refresh countdown'); row.append(bar);
+                row.append(action('Copy TOTP', async () => { await navigator.clipboard.writeText(await LockerPasswords.totp(data.totp)); notice('TOTP copied.'); setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000); }));
+            }
+            row.append(action('Check breach', async () => {
+                if (!window.confirm('Send only the first five characters of this password’s SHA-1 hash to Have I Been Pwned?')) return;
+                const { prefix, suffix } = await LockerPasswords.breachRange(data.password);
+                const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, { headers: { 'Add-Padding': 'true' } });
+                if (!response.ok) throw new Error('Breach check is temporarily unavailable.');
+                const found = (await response.text()).split(/\r?\n/).some((line) => line.split(':')[0] === suffix);
+                notice(found ? 'This password appears in known breach data. Change it on that site.' : 'No match found in the breach data checked.');
+            }));
+            row.append(action('Delete', async () => { await api(`/api/v1/files/${item.id}`, { method: 'DELETE' }); loginRecords.delete(item.id); await refresh(); }));
+            if (data.notes) row.append(make('p', data.notes)); box.append(row);
+        }
+        if (!box.children.length) box.append(make('p', 'No matching saved logins.', 'empty'));
+    }
+    async function updateTotp() {
+        const seconds = 30 - Math.floor(Date.now() / 1000) % 30;
+        for (const el of document.querySelectorAll('[data-totp]')) {
+            const code = await LockerPasswords.totp(el.dataset.totp).catch(() => 'Invalid secret');
+            el.textContent = `TOTP · ${code} · ${seconds}s`; el.nextElementSibling.value = seconds;
+        }
+    }
+    setInterval(() => updateTotp().catch(() => {}), 1000);
     document.addEventListener('ov-locker:change', () => {
         state();
         if (L.state().unlocked) refresh().catch((e) => notice(e.message, true));
         else {
-            names.clear(); if ($('#opened')) $('#opened').replaceChildren();
+            names.clear(); loginRecords.clear(); if ($('#opened')) $('#opened').replaceChildren();
             if ($('#file-name')) $('#file-name').textContent = 'A locked file.';
             if ($('#item-description')) $('#item-description').textContent = 'Its name and content are encrypted.';
-            $('#rename-form')?.reset(); drawItems();
+            $('#rename-form')?.reset(); if (page.mode === 'passwords') drawLogins(); else drawItems();
         }
     });
+    if (page.mode === 'passwords') {
+        let autoLockTimer;
+        const resetAutoLock = () => {
+            clearTimeout(autoLockTimer);
+            if (L.state().unlocked) autoLockTimer = setTimeout(() => { L.forget(); notice('Locker locked after 15 minutes of inactivity.'); }, 15 * 60 * 1000);
+        };
+        for (const event of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(event, resetAutoLock, { passive: true });
+        document.addEventListener('ov-locker:change', resetAutoLock);
+        resetAutoLock();
+    }
     document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => run(b, async () => {
         if (b.dataset.action === 'setup') { signedIn(); await L.setup(); }
         if (b.dataset.action === 'unlock') { signedIn(); await L.ensure(); }
@@ -233,6 +292,36 @@
         f.addEventListener('submit', (e) => { e.preventDefault(); run(e.submitter || f.querySelector('button.primary,button[type=submit]'), () => fn(new FormData(f), f)); });
     }
     form('#upload-form', async (data, f) => { const file = data.get('file'); if (!file?.name) throw new Error('Choose a file.'); await uploadFile(file, { parent: data.get('parent') }); f.reset(); });
+    form('#login-form', async (data, f) => {
+        uploadsAllowed(); await L.ensure(); const site = LockerPasswords.normalizeOrigin(data.get('site'));
+        const record = { version: 1, site, username: data.get('username').trim(), password: data.get('password'), totp: data.get('totp').trim(), notes: data.get('notes').trim() };
+        if (f.dataset.edit) {
+            const id = f.dataset.edit, info = await api(`/api/v1/files/${id}`); const blob = new Blob([JSON.stringify(record)]);
+            const encrypted = await sealed({ file: new File([blob], 'login.json', { type: 'application/json' }), meta: { name: 'login.json', type: 'application/json', size: blob.size }, lock: 'people', keys: await ownKeys() });
+            try { await encrypted.upload({ kind: 'replace', item_id: id }, info.revision); } finally { encrypted.release(); }
+            loginRecords.delete(id);
+        } else await uploadFile(new File([JSON.stringify(record)], 'login.json', { type: 'application/json' }), { login: true });
+        f.reset(); delete f.dataset.edit; f.querySelector('button.primary').textContent = 'Save encrypted login'; await refresh();
+    });
+    $('#login-search')?.addEventListener('input', drawLogins);
+    document.querySelector('#generate-password')?.addEventListener('click', async (e) => run(e.currentTarget, async () => {
+        const bytes = crypto.getRandomValues(new Uint8Array(24)); const password = btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, (c) => ({ '+': '-', '/': '_', '=': '' })[c]);
+        $('#login-form [name=password]').value = password;
+    }));
+    $('#login-import')?.addEventListener('change', (e) => run(e.currentTarget, async () => {
+        const file = e.currentTarget.files[0]; if (!file) return;
+        const rows = LockerPasswords.parseCsv(await file.text()); const headers = rows.shift().map((x) => x.toLowerCase());
+        const col = (...names) => headers.findIndex((h) => names.includes(h));
+        const siteCol = col('url', 'login_uri', 'website', 'hostname'), userCol = col('username', 'login_username'), passCol = col('password', 'login_password'), totpCol = col('totp', 'login_totp', 'otpauth', 'one-time password', 'one_time_password'), noteCol = col('notes', 'note');
+        if (siteCol < 0 || passCol < 0) throw new Error('CSV needs URL and password columns.');
+        uploadsAllowed(); await L.ensure(); let saved = 0;
+        for (const row of rows) {
+            if (!row[siteCol] || !row[passCol]) continue;
+            const record = { version: 1, site: new URL(row[siteCol]).origin, username: row[userCol] || '', password: row[passCol], totp: row[totpCol] || '', notes: row[noteCol] || '' };
+            await uploadFile(new File([JSON.stringify(record)], 'login.json', { type: 'application/json' }), { login: true }); saved++;
+        }
+        notice(`Imported ${saved} encrypted logins.`); e.currentTarget.value = '';
+    }));
     form('#folder-form', async (data, f) => { const name = data.get('name').trim(); if (!name) throw new Error('Give the folder a name.'); await uploadFile(new File([], name), { folder: true, parent: currentFolder }); f.reset(); });
     form('#send-form', async (data, f) => {
         const file = data.get('file'), text = data.get('text');

@@ -57,6 +57,7 @@ function createSharing({ service, network }) {
             if (match) {
                 // Disabled and deleted items cannot be changed through the generic share router.
                 const row = await service.view(req.user, match[1]);
+                if (row.kind === 'login') fail(409, 'locker.login.private', 'Password logins cannot be shared.');
                 if (!['GET', 'HEAD'].includes(req.method) && match[2] !== 'requests') {
                     await service.owned(req.user, match[1]);
                     if (req.body?.members !== undefined && !Array.isArray(req.body.members)) fail(400, 'locker.share.members', 'Members must be a list.');

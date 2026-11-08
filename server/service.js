@@ -125,7 +125,7 @@ function createService({ db, config, network, media, now = Date.now }) {
             [upload.id, upload.owner, JSON.stringify(result), new Date(now() + 86400000).toISOString()]);
     }
     async function create(user, source, bytes, { kind = 'file', parent = null, expiresIn, downloadLimit } = {}, prepared = null) {
-        if (!['file', 'folder', 'send'].includes(kind)) fail(400, 'locker.kind', 'Choose a file, folder or Send.');
+        if (!['file', 'folder', 'send', 'login'].includes(kind)) fail(400, 'locker.kind', 'Choose a file, folder, login or Send.');
         let expires = null;
         if (kind === 'send') {
             if (!Number.isSafeInteger(expiresIn) || expiresIn < 3600 || expiresIn > 30 * 86400) fail(400, 'locker.expiry', 'A Send expires in 1 hour to 30 days.');
