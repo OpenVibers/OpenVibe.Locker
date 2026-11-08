@@ -14,6 +14,9 @@ function load(env = process.env) {
         networkUrl: env.OV_NETWORK_URL || 'https://openvibe.network',
         networkInternalUrl: env.OV_NETWORK_INTERNAL_URL || 'http://127.0.0.1:4000',
         mediaUrl: env.OV_MEDIA_URL || 'https://openvibe.media',
+        // Media signs download URLs on its public origin; when Locker reaches Media over loopback, the same signed path
+        // is fetched there (no service credentials follow either way).
+        mediaPublicUrl: env.OV_MEDIA_PUBLIC_URL || 'https://openvibe.media',
         eventsUrl: env.OV_EVENTS_URL || 'https://openvibe.events',
         clientId: 'locker', clientSecret: env.OV_OAUTH_CLIENT_SECRET || '', eventsSecret: env.LOCKER_EVENTS_SECRET || '',
         dbUrl: env.DATABASE_URL, dbDirectUrl: env.DATABASE_DIRECT_URL,
