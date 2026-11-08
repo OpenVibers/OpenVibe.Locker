@@ -52,3 +52,21 @@ test('Network key proxy preserves reauthentication errors without fetching servi
     await assert.rejects(network.json({ method: 'PUT', path: '/api/v1/me/keys', json: {}, token: 'test-session', preserveProblem: true }),
         (e) => e.status === 403 && e.code === 'locker.reauth_required');
 });
+
+test('a download signed on the public Media origin is fetched over the loopback origin; any other origin is refused', async () => {
+    const seen = [];
+    const json = (body) => Response.json(body);
+    let signed = 'https://media.public/o/med_x?sig=abc';
+    const fakeFetch = async (url, options) => {
+        const u = new URL(url); seen.push(u.href);
+        if (u.pathname === '/oauth/token') return json({ access_token: 'test-only', expires_in: 300 });
+        if (u.pathname.endsWith('/download')) return json({ url: signed });
+        assert.equal(options.headers, undefined, 'no service credentials follow a signed URL');
+        return new Response(Buffer.from('ciphertext'));
+    };
+    const media = createMedia({ networkInternalUrl: 'https://network.test', mediaUrl: 'http://127.0.0.1:4100', mediaPublicUrl: 'https://media.public', clientId: 'locker', clientSecret: '' }, fakeFetch);
+    assert.equal(Buffer.from(await (await media.read('med_x')).arrayBuffer()).toString(), 'ciphertext');
+    assert.ok(seen.includes('http://127.0.0.1:4100/o/med_x?sig=abc'), 'the signed path went to loopback');
+    signed = 'https://elsewhere.example/o/med_x?sig=abc';
+    await assert.rejects(media.read('med_x'), (e) => e.code === 'locker.media.origin');
+});

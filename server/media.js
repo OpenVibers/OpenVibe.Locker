@@ -42,8 +42,12 @@ function createMedia(config, fetchImpl = fetch) {
         async read(id) {
             // Keep private signed URLs on the server; never redirect a limited Send to Media.
             const { url } = await call('GET', `/${encodeURIComponent(id)}/download?format=json`);
-            const target = new URL(url);
-            if (target.origin !== new URL(config.mediaUrl).origin) fail(502, 'locker.media.origin', 'Unexpected encrypted storage origin.');
+            let target = new URL(url);
+            const internal = new URL(config.mediaUrl);
+            if (config.mediaPublicUrl && target.origin === new URL(config.mediaPublicUrl).origin && target.origin !== internal.origin) {
+                target = new URL(`${target.pathname}${target.search}`, internal.origin);
+            }
+            if (target.origin !== internal.origin) fail(502, 'locker.media.origin', 'Unexpected encrypted storage origin.');
             // Media may redirect its private signed URL to a signed storage-provider URL; no service credentials follow.
             const r = await fetchImpl(target, { signal: AbortSignal.timeout(30 * 60 * 1000), redirect: 'follow' });
             if (!r.ok || !r.body) fail(502, 'locker.media.read', 'Encrypted storage is temporarily unavailable.');
