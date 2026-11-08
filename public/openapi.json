@@ -1,0 +1,2452 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenVibe.Locker",
+    "version": "0.1.0",
+    "description": "Ciphertext in, ciphertext out. Network user bearer tokens for agents. Cookie writes also require same-origin Origin and X-Requested-With. Never send names, MIME types, plaintext, passwords, private keys or fragment keys outside an envelope."
+  },
+  "servers": [
+    {
+      "url": "https://openvibe.locker"
+    }
+  ],
+  "paths": {
+    "/api/v1/files": {
+      "get": {
+        "operationId": "listFiles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Opaque metadata, items and next_cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createFiles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "Complete locker.envelope.v1 ciphertext; file details live inside the sealed payload."
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "file",
+                "folder"
+              ]
+            }
+          },
+          {
+            "name": "parent",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Content-Length",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "description": "Single-request envelopes are limited to 90 MiB. Use /api/v1/uploads for larger envelopes."
+      }
+    },
+    "/api/v1/files/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getFiles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Opaque metadata; Sends reveal neither content nor a key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteFiles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Access removed; ciphertext queued for erasure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceEncryptedFile",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "Complete locker.envelope.v1 ciphertext; file details live inside the sealed payload."
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Single-request envelopes are limited to 90 MiB. Use /api/v1/uploads for larger envelopes."
+      }
+    },
+    "/api/v1/files/{id}/content": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "downloadFiles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Complete encrypted envelope, never decrypted",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/report": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "reportFiles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "abuse",
+                      "illegal",
+                      "malware",
+                      "other"
+                    ]
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sends": {
+      "get": {
+        "operationId": "listSends",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Opaque metadata, items and next_cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createSends",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "Complete locker.envelope.v1 ciphertext; file details live inside the sealed payload."
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "expires_in",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 3600,
+              "maximum": 2592000
+            }
+          },
+          {
+            "name": "download_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          {
+            "name": "Content-Length",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "description": "Single-request envelopes are limited to 90 MiB. Use /api/v1/uploads for larger envelopes."
+      }
+    },
+    "/api/v1/sends/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getSends",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Opaque metadata; Sends reveal neither content nor a key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSends",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Access removed; ciphertext queued for erasure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sends/{id}/content": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "downloadSends",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Complete encrypted envelope, never decrypted",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sends/{id}/report": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "reportSends",
+        "security": [],
+        "responses": {
+          "202": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "abuse",
+                      "illegal",
+                      "malware",
+                      "other"
+                    ]
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/reseals": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "stagePeopleReseal",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Returns envelope_ref and the opaque header; expires in one hour",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "Complete locker.envelope.v1 ciphertext; file details live inside the sealed payload."
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Single-request envelopes are limited to 90 MiB. Use /api/v1/uploads for larger envelopes."
+      }
+    },
+    "/api/v1/files/{id}/share": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getSharing",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSharing",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "audience": {
+                    "type": "string",
+                    "enum": [
+                      "people",
+                      "private"
+                    ]
+                  },
+                  "members": {
+                    "type": "array",
+                    "maxItems": 99,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "subject",
+                        "role",
+                        "key_slot"
+                      ],
+                      "properties": {
+                        "subject": {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "id"
+                          ],
+                          "properties": {
+                            "type": {
+                              "const": "user"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "role": {
+                          "const": "viewer"
+                        },
+                        "key_slot": {
+                          "type": "object"
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  },
+                  "envelope_ref": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "envelope": {
+                    "type": "string",
+                    "contentEncoding": "base64"
+                  },
+                  "notify": {
+                    "type": "boolean"
+                  },
+                  "lock": {
+                    "const": "people"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/shared-with-me": {
+      "get": {
+        "operationId": "sharedWithMe",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/share/people": {
+      "get": {
+        "operationId": "findPerson",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "myUsageAndEligibility",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/account/export": {
+      "get": {
+        "operationId": "exportAccountManifest",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ADR-033 part with opaque files; download content individually",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/account": {
+      "delete": {
+        "operationId": "deleteAccountLocker",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "confirmation": {
+                    "const": "delete my locker"
+                  }
+                },
+                "required": [
+                  "confirmation"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/staff/reports": {
+      "get": {
+        "operationId": "staffReports",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Network global_mod or higher only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/staff/items/{id}/disable": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "disableItem",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/staff/people/{subject}/restriction": {
+      "parameters": [
+        {
+          "name": "subject",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "put": {
+        "operationId": "restrictUploads",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "envelope_bytes": {
+                      "type": "integer"
+                    },
+                    "lock": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "downloads": {
+                      "type": "integer"
+                    },
+                    "can_edit": {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "Present on Drive details; only the owner can rename or change sharing."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "restricted": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "restricted"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/keys/backup": {
+      "get": {
+        "summary": "Read your encrypted Network key backups through the authenticated session",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Network key directory response; private key material stays encrypted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required"
+          },
+          "403": {
+            "description": "Network requires proof or recent reauthentication"
+          }
+        }
+      }
+    },
+    "/api/v1/me/keys": {
+      "put": {
+        "summary": "Save public keys and encrypted backups in Network",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Network key directory response; private key material stays encrypted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required"
+          },
+          "403": {
+            "description": "Network requires proof or recent reauthentication"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Network key publication shape, including public JWKs, fingerprint/self-signature and locker.envelope.v1 encrypted backups."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{subject}/keys": {
+      "get": {
+        "summary": "Read a Network public key through the authenticated session",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Network key directory response; private key material stays encrypted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required"
+          },
+          "403": {
+            "description": "Network requires proof or recent reauthentication"
+          }
+        },
+        "parameters": [
+          {
+            "name": "subject",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "A user subject ID or @name"
+          }
+        ]
+      }
+    },
+    "/api/v1/uploads": {
+      "post": {
+        "summary": "Reserve quota for a resumable ciphertext upload",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required original item revision for replace/reseal initiation and completion, e.g. \"2\"."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Reserved for one hour; each newly received part renews the deadline.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSession"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Account ineligible or restricted"
+          },
+          "413": {
+            "description": "File or quota limit exceeded"
+          },
+          "428": {
+            "description": "Replacement/reseal needs If-Match"
+          }
+        }
+      }
+    },
+    "/api/v1/uploads/{id}": {
+      "get": {
+        "summary": "List received parts or retrieve a completed result",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-only upload status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSession"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing, expired or another account\u2019s upload"
+          }
+        }
+      }
+    },
+    "/api/v1/uploads/{id}/parts/{n}": {
+      "put": {
+        "summary": "Stream an immutable, retryable ciphertext part at its offset",
+        "description": "Zero-based parts are exactly 32 MiB except the final remaining bytes. Actual streamed bytes are counted. Missing Content-Length is supported. Received parts are never overwritten.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Part received or already received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "received": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid part number or short body"
+          },
+          "413": {
+            "description": "Part exceeds its expected size"
+          },
+          "409": {
+            "description": "Upload is completing"
+          },
+          "404": {
+            "description": "Upload missing or expired"
+          }
+        }
+      }
+    },
+    "/api/v1/uploads/{id}/complete": {
+      "post": {
+        "summary": "Validate and commit a fully received envelope",
+        "description": "Checks all parts, envelope header, recipients and standing. Creates an item, replaces the If-Match item or returns a reseal receipt. Safe to retry: successful results are retained for 24 hours. A simultaneous completion returns locker.upload.busy (409); query status and retry. Invalid envelopes discard the session.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required original item revision for replace/reseal initiation and completion, e.g. \"2\"."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Created/replaced item, or {envelope_ref, header} for reseal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid envelope or recipients"
+          },
+          "403": {
+            "description": "Account no longer eligible"
+          },
+          "409": {
+            "description": "Missing parts or completion still running"
+          },
+          "412": {
+            "description": "Item revision changed or If-Match differs"
+          },
+          "404": {
+            "description": "Upload missing or expired"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "UploadStart": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "bytes"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "file",
+              "folder",
+              "send",
+              "replace",
+              "reseal"
+            ]
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 8,
+            "description": "Complete ciphertext envelope length, including padding and framing."
+          },
+          "parent": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "item_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Required for replace and reseal."
+          },
+          "expires_in": {
+            "type": "integer",
+            "minimum": 3600,
+            "maximum": 2592000
+          },
+          "download_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          }
+        }
+      },
+      "UploadSession": {
+        "type": "object",
+        "required": [
+          "id",
+          "part_size"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "part_size": {
+            "type": "integer",
+            "enum": [
+              33554432
+            ]
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "received_parts": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "completing",
+              "complete"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "type": "object",
+            "description": "Original item or reseal receipt, available for 24 hours after successful completion."
+          }
+        }
+      }
+    }
+  }
+}
