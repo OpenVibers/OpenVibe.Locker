@@ -267,7 +267,7 @@
             }
         }
     } catch (e) {
-        if (e.status === 401 && !['send', 'docs'].includes(page.mode)) {
+        if (e.status === 401 && !['send', 'docs', 'home'].includes(page.mode)) {
             const a = make('a', 'Sign in to OpenVibe'); a.href = `/auth/login?next=${encodeURIComponent(location.pathname)}`;
             $('#notice').replaceChildren(a);
         } else if (e.status !== 401) notice(e.message, true);
