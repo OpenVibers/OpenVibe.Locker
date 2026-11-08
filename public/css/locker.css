@@ -10,3 +10,5 @@ html[data-theme-mode=dark] .art-caption{color:#aecb9b}html[data-theme-mode=light
 .locker-page .ov-sel-trigger{min-height:46px}
 
 @media(max-width:700px){.hero .actions{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.hero .actions .button{justify-content:center;text-align:center}}
+.login-row{justify-content:flex-start;align-items:flex-start}.login-mark{flex:0 0 44px;height:44px;border-radius:10px;display:grid;place-items:center;background:var(--lk-bg);border:1px solid var(--lk-border);font-weight:700;font-size:18px}.login-body{flex:1 1 auto;min-width:0}.login-body h3{margin:0;font-size:17px;overflow-wrap:anywhere}.login-body p{overflow-wrap:anywhere}.login-code{font-variant-numeric:tabular-nums;font-weight:600;color:var(--lk-text)}.login-body progress{width:120px;height:6px;margin-top:6px}.login-row .actions{flex:0 1 auto;justify-content:flex-end;max-width:420px}.login-row .actions button{min-height:40px;padding:8px 14px}
+@media(max-width:700px){.login-row{flex-direction:row;flex-wrap:wrap}.login-row .actions{max-width:none;justify-content:flex-start}}

@@ -12,15 +12,33 @@
         const hash = [...digest].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
         return { prefix: hash.slice(0, 5), suffix: hash.slice(5) };
     }
-    async function totp(secret, now = Date.now()) {
+    // A bare Base32 secret, or an otpauth://totp/ link as authenticator QR codes and most exports carry it.
+    function totpParams(value) {
+        const raw = String(value || '').trim();
+        if (!/^otpauth:\/\//i.test(raw)) return { secret: raw, algorithm: 'SHA-1', digits: 6, period: 30 };
+        const url = new URL(raw); const p = url.searchParams;
+        if (url.hostname.toLowerCase() !== 'totp') throw new Error('Only time-based (TOTP) codes are supported.');
+        const algorithm = { SHA1: 'SHA-1', SHA256: 'SHA-256', SHA512: 'SHA-512' }[(p.get('algorithm') || 'SHA1').toUpperCase().replace('-', '')];
+        const digits = Number(p.get('digits') || 6), period = Number(p.get('period') || 30);
+        if (!algorithm || ![6, 7, 8].includes(digits) || !Number.isInteger(period) || period < 1 || period > 300) throw new Error('This TOTP link uses settings Locker does not support.');
+        return { secret: p.get('secret') || '', algorithm, digits, period };
+    }
+    // A site from an import file: a bare host gets https://; anything that is not a web origin is skipped (null).
+    function importOrigin(value) {
+        const raw = String(value || '').trim(); if (!raw) return null;
+        try { return normalizeOrigin(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`); } catch { return null; }
+    }
+    async function totp(value, now = Date.now()) {
+        const { secret, algorithm, digits, period } = totpParams(value);
         const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = '', bytes = [];
         for (const c of secret.toUpperCase().replace(/[\s=-]/g, '')) { const v = alphabet.indexOf(c); if (v < 0) throw new Error('The TOTP secret is not valid Base32.'); bits += v.toString(2).padStart(5, '0'); }
         for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2));
-        const counter = BigInt(Math.floor(now / 30000)); const msg = new Uint8Array(8); new DataView(msg.buffer).setBigUint64(0, counter);
-        const key = await crypto.subtle.importKey('raw', new Uint8Array(bytes), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']); const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, msg));
-        const off = mac.at(-1) & 15; const code = ((mac[off] & 127) << 24 | mac[off + 1] << 16 | mac[off + 2] << 8 | mac[off + 3]) % 1000000; return String(code).padStart(6, '0');
+        if (!bytes.length) throw new Error('The TOTP secret is empty.');
+        const counter = BigInt(Math.floor(now / (period * 1000))); const msg = new Uint8Array(8); new DataView(msg.buffer).setBigUint64(0, counter);
+        const key = await crypto.subtle.importKey('raw', new Uint8Array(bytes), { name: 'HMAC', hash: algorithm }, false, ['sign']); const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, msg));
+        const off = mac.at(-1) & 15; const code = ((mac[off] & 127) << 24 | mac[off + 1] << 16 | mac[off + 2] << 8 | mac[off + 3]) % 10 ** digits; return String(code).padStart(digits, '0');
     }
-    const api = { parseCsv, normalizeOrigin, breachRange, totp };
+    const api = { parseCsv, normalizeOrigin, importOrigin, breachRange, totpParams, totp };
     if (typeof module !== 'undefined') module.exports = api;
     else root.LockerPasswords = api;
 })(globalThis);

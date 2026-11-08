@@ -217,16 +217,20 @@
         const search = ($('#login-search')?.value || '').toLocaleLowerCase();
         for (const item of items) {
             const data = loginRecords.get(item.id); if (!data || !`${data.site} ${data.username} ${data.notes}`.toLocaleLowerCase().includes(search)) continue;
-            const row = make('article', null, 'item-row'); const url = new URL(data.site);
-            const title = make('h3', `${url.hostname.slice(0, 1).toUpperCase()} · ${url.hostname}`); const details = make('p', data.username || 'No username'); row.append(title, details);
-            row.append(action('Edit', async () => { const form = $('#login-form'); for (const key of ['site', 'username', 'password', 'totp', 'notes']) form.elements[key].value = key === 'site' ? data.site : data[key] || ''; form.dataset.edit = item.id; form.querySelector('button.primary').textContent = 'Update encrypted login'; form.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
-            row.append(action('Copy password', async () => { await navigator.clipboard.writeText(data.password); notice('Password copied.'); setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000); }));
+            const row = make('article', null, 'item-row login-row'); const url = new URL(data.site);
+            const mark = make('span', url.hostname.replace(/^www\./, '').slice(0, 1).toUpperCase(), 'login-mark'); mark.setAttribute('aria-hidden', 'true');
+            const body = make('div', null, 'login-body'); const buttons = make('div', null, 'actions');
+            body.append(make('h3', url.hostname), make('p', data.username || 'No username'));
+            row.append(mark, body, buttons);
+            buttons.append(action('Edit', async () => { const form = $('#login-form'); for (const key of ['site', 'username', 'password', 'totp', 'notes']) form.elements[key].value = key === 'site' ? data.site : data[key] || ''; form.dataset.edit = item.id; form.querySelector('button.primary').textContent = 'Update encrypted login'; form.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
+            buttons.append(action('Copy password', async () => { await navigator.clipboard.writeText(data.password); notice('Password copied.'); setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000); }));
             if (data.totp) {
-                const timer = make('p', 'TOTP · generating'); timer.dataset.totp = data.totp; row.append(timer);
-                const bar = make('progress'); bar.max = 30; bar.value = 30 - Math.floor(Date.now() / 1000) % 30; bar.setAttribute('aria-label', 'TOTP refresh countdown'); row.append(bar);
-                row.append(action('Copy TOTP', async () => { await navigator.clipboard.writeText(await LockerPasswords.totp(data.totp)); notice('TOTP copied.'); setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000); }));
+                let period = 30; try { period = LockerPasswords.totpParams(data.totp).period; } catch { /* shown as invalid below */ }
+                const timer = make('p', 'Code · …', 'login-code'); timer.dataset.totp = data.totp; timer.dataset.period = period; body.append(timer);
+                const bar = make('progress'); bar.max = period; bar.value = period - Math.floor(Date.now() / 1000) % period; bar.setAttribute('aria-label', 'Seconds until the next code'); body.append(bar);
+                buttons.append(action('Copy code', async () => { await navigator.clipboard.writeText(await LockerPasswords.totp(data.totp)); notice('Code copied.'); setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000); }));
             }
-            row.append(action('Check breach', async () => {
+            buttons.append(action('Check breach', async () => {
                 if (!window.confirm('Send only the first five characters of this password’s SHA-1 hash to Have I Been Pwned?')) return;
                 const { prefix, suffix } = await LockerPasswords.breachRange(data.password);
                 const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, { headers: { 'Add-Padding': 'true' } });
@@ -234,19 +238,20 @@
                 const found = (await response.text()).split(/\r?\n/).some((line) => line.split(':')[0] === suffix);
                 notice(found ? 'This password appears in known breach data. Change it on that site.' : 'No match found in the breach data checked.');
             }));
-            row.append(action('Delete', async () => { await api(`/api/v1/files/${item.id}`, { method: 'DELETE' }); loginRecords.delete(item.id); await refresh(); }));
-            if (data.notes) row.append(make('p', data.notes)); box.append(row);
+            buttons.append(action('Delete', async () => { if (!window.confirm(`Delete the saved login for ${url.hostname}? This cannot be undone.`)) return; await api(`/api/v1/files/${item.id}`, { method: 'DELETE' }); loginRecords.delete(item.id); await refresh(); }));
+            if (data.notes) body.append(make('p', data.notes, 'login-notes')); box.append(row);
         }
         if (!box.children.length) box.append(make('p', 'No matching saved logins.', 'empty'));
     }
     async function updateTotp() {
-        const seconds = 30 - Math.floor(Date.now() / 1000) % 30;
         for (const el of document.querySelectorAll('[data-totp]')) {
-            const code = await LockerPasswords.totp(el.dataset.totp).catch(() => 'Invalid secret');
-            el.textContent = `TOTP · ${code} · ${seconds}s`; el.nextElementSibling.value = seconds;
+            const period = Number(el.dataset.period) || 30, seconds = period - Math.floor(Date.now() / 1000) % period;
+            const code = await LockerPasswords.totp(el.dataset.totp).catch(() => null);
+            el.textContent = code ? `Code · ${code} · ${seconds}s` : 'Code · this two-factor secret is not valid';
+            if (el.nextElementSibling?.tagName === 'PROGRESS') el.nextElementSibling.value = seconds;
         }
     }
-    setInterval(() => updateTotp().catch(() => {}), 1000);
+    if (page.mode === 'passwords') setInterval(() => updateTotp().catch(() => {}), 1000);
     document.addEventListener('ov-locker:change', () => {
         state();
         if (L.state().unlocked) refresh().catch((e) => notice(e.message, true));
@@ -308,20 +313,21 @@
         const bytes = crypto.getRandomValues(new Uint8Array(24)); const password = btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, (c) => ({ '+': '-', '/': '_', '=': '' })[c]);
         $('#login-form [name=password]').value = password;
     }));
-    $('#login-import')?.addEventListener('change', (e) => run(e.currentTarget, async () => {
-        const file = e.currentTarget.files[0]; if (!file) return;
+    $('#login-import')?.addEventListener('change', (e) => { const input = e.currentTarget; run(input, async () => {
+        const file = input.files[0]; if (!file) return;
         const rows = LockerPasswords.parseCsv(await file.text()); const headers = rows.shift().map((x) => x.toLowerCase());
         const col = (...names) => headers.findIndex((h) => names.includes(h));
-        const siteCol = col('url', 'login_uri', 'website', 'hostname'), userCol = col('username', 'login_username'), passCol = col('password', 'login_password'), totpCol = col('totp', 'login_totp', 'otpauth', 'one-time password', 'one_time_password'), noteCol = col('notes', 'note');
+        const siteCol = col('url', 'login_uri', 'website', 'hostname'), userCol = col('username', 'login_username'), passCol = col('password', 'login_password'), totpCol = col('totp', 'login_totp', 'otpauth', 'one-time password', 'one_time_password'), noteCol = col('notes', 'note', 'extra');
         if (siteCol < 0 || passCol < 0) throw new Error('CSV needs URL and password columns.');
-        uploadsAllowed(); await L.ensure(); let saved = 0;
+        uploadsAllowed(); await L.ensure(); let saved = 0, skipped = 0;
         for (const row of rows) {
-            if (!row[siteCol] || !row[passCol]) continue;
-            const record = { version: 1, site: new URL(row[siteCol]).origin, username: row[userCol] || '', password: row[passCol], totp: row[totpCol] || '', notes: row[noteCol] || '' };
+            const site = LockerPasswords.importOrigin(row[siteCol]);
+            if (!site || !row[passCol]) { skipped++; continue; }
+            const record = { version: 1, site, username: row[userCol] || '', password: row[passCol], totp: row[totpCol] || '', notes: row[noteCol] || '' };
             await uploadFile(new File([JSON.stringify(record)], 'login.json', { type: 'application/json' }), { login: true }); saved++;
         }
-        notice(`Imported ${saved} encrypted logins.`); e.currentTarget.value = '';
-    }));
+        notice(`Imported ${saved} encrypted ${saved === 1 ? 'login' : 'logins'}.${skipped ? ` Skipped ${skipped} ${skipped === 1 ? 'row' : 'rows'} without a website address and password.` : ''}`);
+    }).finally(() => { input.value = ''; }); });
     form('#folder-form', async (data, f) => { const name = data.get('name').trim(); if (!name) throw new Error('Give the folder a name.'); await uploadFile(new File([], name), { folder: true, parent: currentFolder }); f.reset(); });
     form('#send-form', async (data, f) => {
         const file = data.get('file'), text = data.get('text');
