@@ -5,6 +5,9 @@ The server stores ciphertext and opaque access metadata. It never seals, opens, 
 runs AI on content. The cryptographic format and operations are the existing `locker.envelope.v1` and
 `openvibe-sdk/locker`; the device UI and Share sheet are Shared's `ov-locker.js`, `ov-locker-core.js` and `ov-share.js`.
 
+**Live site:** https://openvibe.locker · **API docs:** https://openvibe.services · **For AI:** https://openvibe.locker/llms.txt
+**Run it:** `npm ci && npm start` (Node 22 or newer) · **Tests:** `npm test`
+
 ## Run and verify
 
 `npm ci`, then `npm start`. Without database settings, development uses PGlite in `data/pglite`.
