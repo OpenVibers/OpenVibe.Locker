@@ -21,6 +21,9 @@ test('password login items use people locks and remain opaque in storage', async
     assert.equal(new TextDecoder().decode(bytes).includes('secret-password'), false);
     assert.equal(new TextDecoder().decode(await locker.open(bytes, { person: t.people.get(SUBJECT) })), secret);
     assert.equal((await t.request('GET', '/api/v1/files')).status, 200);
+    const release = await t.request('GET', '/release.json');
+    assert.equal(release.status, 200, 'the navbar release watch polls /release.json');
+    assert.equal((await release.json()).service, 'locker');
 });
 test('WebCrypto stream → ciphertext API → download → authenticated opening, with private metadata', async () => {
     const file = new Blob([Buffer.alloc(2 * 1048576 + 93, 71)]);
