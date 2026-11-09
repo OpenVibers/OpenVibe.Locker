@@ -177,6 +177,9 @@ async function createApp(options = {}) {
         });
         res.json({ restricted: req.body.restricted });
     }));
+    // GET /release.json (ADR-016): the navbar's release watch polls it so open tabs learn of a new release (the 11-09
+    // browser sweep found it answering 404 here).
+    require('openvibe-shared/release').createRelease({ service: 'locker', root: path.join(__dirname, '..') }).mount(app);
     app.use('/shared', require('openvibe-shared/serve').handler());
     app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: '1h' }));
     app.use(require('./pages').createPages({ config }));
