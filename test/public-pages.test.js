@@ -15,3 +15,10 @@ test('public pages ask the session before the account API', () => {
     assert.match(before, /fetch\('\/auth\/me'/);
     assert.match(before, /if \(who && who\.user === null\) return;/, 'only an explicit "nobody" skips the account call');
 });
+
+// 11-09: the lock card said "Unlock to open your files" on Passwords, and Passwords listed the per-file upload limit.
+test('the lock card and the storage line fit the page', () => {
+    const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'app.js'), 'utf8');
+    assert.match(js, /page\.mode === 'passwords' \? 'see and save your logins' : 'open your files'/);
+    assert.match(js, /page\.mode === 'passwords' \? '' : ` · Up to \$\{size\(me\.max_file_bytes\)\} per file`/);
+});

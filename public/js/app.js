@@ -25,7 +25,9 @@
     function state() {
         const unlocked = L.state().unlocked;
         if ($('#lock-state')) $('#lock-state').textContent = unlocked ? 'Your locker is unlocked' : 'Your locker is locked';
-        if ($('#fingerprint')) $('#fingerprint').textContent = unlocked ? L.state().fingerprint : 'Unlock to open your files. Your keys stay here.';
+        // Say what unlocking is for on this page (the card said "your files" on Passwords too).
+        const what = page.mode === 'passwords' ? 'see and save your logins' : 'open your files';
+        if ($('#fingerprint')) $('#fingerprint').textContent = unlocked ? L.state().fingerprint : `Unlock to ${what}. Your keys stay here.`;
         document.querySelectorAll('[data-action=lock]').forEach((b) => { b.disabled = !unlocked; });
     }
     async function ownKeys() {
@@ -138,7 +140,7 @@
         progress('Verified and opened.');
     }
     function showStorage() {
-        if ($('#account') && me) $('#account').textContent = `${size(me.used_bytes)} of ${size(me.quota_bytes)} used${me.reserved_bytes ? ` · ${size(me.reserved_bytes)} uploading` : ''} · Up to ${size(me.max_file_bytes)} per file${me.eligible ? '' : ` · ${me.reason}`}`;
+        if ($('#account') && me) $('#account').textContent = `${size(me.used_bytes)} of ${size(me.quota_bytes)} used${me.reserved_bytes ? ` · ${size(me.reserved_bytes)} uploading` : ''} ${page.mode === 'passwords' ? '' : ` · Up to ${size(me.max_file_bytes)} per file`}${me.eligible ? '' : ` · ${me.reason}`}`;   // logins are small: no per-file limit on Passwords
     }
     async function refresh() {
         if (!me) return;
