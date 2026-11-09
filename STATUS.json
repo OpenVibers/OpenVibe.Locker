@@ -21,7 +21,7 @@
   "repository": "OpenVibers/OpenVibe.Locker",
   "stage": "alpha",
   "deployed": false,
-  "contracts": "openvibe-contracts v0.346.0",
+  "contracts": "openvibe-contracts v0.373.0",
   "sdk": "openvibe-sdk v0.123.0",
   "shared": "openvibe-shared v4.173.0",
   "updated": "2026-11-09"

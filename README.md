@@ -122,7 +122,7 @@ Every request revalidates Network's live token family, including content downloa
 Run `node --test test/companion.test.js` for isolation and ciphertext-only checks.
 
 <!-- versions:start -->
-- openvibe-contracts: v0.346.0
+- openvibe-contracts: v0.373.0
 - openvibe-sdk: v0.123.0
 - openvibe-shared: v4.173.0
 <!-- versions:end -->
