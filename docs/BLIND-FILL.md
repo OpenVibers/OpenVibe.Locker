@@ -16,9 +16,12 @@ public key, and sends only that envelope to Run. The agent receives only `{ ok, 
    It seals `{ request_id, origin, username, password, code?, submit, exp }` for that machine; the grant expires in
    sixty seconds. Only the envelope is posted to Run, and each request can be granted once.
 4. Run sends the envelope over its existing machine control channel. Node opens it with its Link Send private key and
-   checks request id, expiry, and exact origin. It checks the active CDP top-level frame origin again, fills visible
-   inputs in the top-level document only, and submits only when approved. Iframe inputs are never searched. Node
-   reports `ok` or `failed`; Run resumes the agent after navigation or five seconds.
+   checks request id, expiry, and exact origin. Origins must be HTTPS and match exactly, including host and port; HTTP
+   pages are refused at request and fill time. Node checks the active CDP top-level frame origin again, creates a CDP
+   isolated world for that frame with universal access disabled, and evaluates the fill script there. The script checks
+   `location.origin` again, fills visible inputs in the top-level document only, and submits only when approved. Iframe
+   inputs are never searched. Node retains used request ids for two minutes and returns `reused` on replay. Node reports
+   `ok` or `failed`; Run resumes the agent after navigation or five seconds.
 5. Run refuses screenshots and page text while approval or fill is active and until the next navigation. Fill audit
    records contain request id, origin, decision, outcome, and times only.
 
@@ -29,8 +32,9 @@ public key, and sends only that envelope to Run. The agent receives only `{ ok, 
 - Requests require the agent to hold the session control lease. Partner, community, and external machines cannot fill.
 - The requested origin and the machine's current top-level origin must match exactly at request and fill time. A
   cross-origin iframe is never eligible.
-- Grants are encrypted to the chosen machine, expire after sixty seconds, and are single-use. Plaintext buffers are
-  cleared after the machine hands the fields to its local browser plugin.
+- Grants are encrypted to the chosen machine, expire after sixty seconds, and are single-use. Mutable plaintext buffers
+  are cleared after the machine hands the fields to its local browser plugin. Python strings are immutable and cannot
+  be overwritten; the plugin drops its plaintext local references as soon as the call returns.
 - Audit data contains no field contents, credential ids, codes, page HTML, or screenshots.
 - `locker_fill_login(origin)` returns only `{ ok, reason }`.
 
