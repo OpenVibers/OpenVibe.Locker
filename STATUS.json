@@ -23,6 +23,6 @@
   "deployed": false,
   "contracts": "openvibe-contracts v0.346.0",
   "sdk": "openvibe-sdk v0.117.0",
-  "shared": "openvibe-shared v4.168.0",
+  "shared": "openvibe-shared v4.172.0",
   "updated": "2026-11-09"
 }
