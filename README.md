@@ -124,5 +124,5 @@ Run `node --test test/companion.test.js` for isolation and ciphertext-only check
 <!-- versions:start -->
 - openvibe-contracts: v0.346.0
 - openvibe-sdk: v0.101.0
-- openvibe-shared: v4.163.0
+- openvibe-shared: v4.165.0
 <!-- versions:end -->
