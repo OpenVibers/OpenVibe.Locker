@@ -7,6 +7,7 @@ Never send plaintext, filenames, passwords, recovery words, private keys or a Se
 - [Locked items on OpenVibe](/docs)
 - [Passwords](/passwords)
 - [OpenAPI](/openapi.json)
+- [Full text for language models](/llms-full.txt)
 - [Source, payload format and streaming examples](https://github.com/OpenVibers/OpenVibe.Locker)
 - [Locker SDK](https://github.com/OpenVibers/OpenVibe.SDK/blob/main/docs/locker.md)
 - [Sharing SDK](https://github.com/OpenVibers/OpenVibe.SDK/blob/main/docs/share.md)
