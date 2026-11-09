@@ -1,0 +1,32 @@
+# OpenVibe.Locker
+
+> Private files, password logins and expiring Sends. Seal and open only on your device with openvibe-sdk/locker. The service stores opaque locker.envelope.v1 ciphertext in OpenVibe.Media's private locker namespace.
+
+## Pages
+
+### OpenVibe.Locker
+
+URL: https://openvibe.locker/
+
+Keep it yours. A private place for your files, locked on your device before they leave it. Drive keeps files and folders encrypted on your device and shares them with the people you choose. Sends are a file or a note with a time limit and an optional download limit. The key stays after # in a Send link and is never sent to OpenVibe.
+
+OpenVibe stores encrypted bytes and can see only the owner, the padded size and the time. If you lose your password (or your locker passphrase and recovery kit), nobody can open your items, including OpenVibe.
+
+### Locked items on OpenVibe
+
+URL: https://openvibe.locker/docs
+
+A people lock opens with the keys of the people on its list. A password lock opens with its password. A link lock opens with a key after #. The same Locker envelope works across OpenVibe.
+
+Drive uses people locks. Sends use link locks, expire in 1 hour to 30 days, and can have a download limit. Names, types, true sizes and contents are inside the envelope. Recipients can keep what they open.
+
+Lock a file for an @name with the Locker SDK (openvibe-sdk/locker) and the Network key directory: include your own key before uploading to Drive, then use the Share API to add the recipient. For large files use sealStream and openStream, and discard a download if final verification fails.
+
+## Machine-readable
+
+- OpenAPI 3.1: https://openvibe.locker/openapi.json
+- Agent descriptor: https://openvibe.locker/.well-known/agent.json
+- llms.txt: https://openvibe.locker/llms.txt
+- Source, payload format and streaming examples: https://github.com/OpenVibers/OpenVibe.Locker
+- Locker SDK: https://github.com/OpenVibers/OpenVibe.SDK/blob/main/docs/locker.md
+- Sharing SDK: https://github.com/OpenVibers/OpenVibe.SDK/blob/main/docs/share.md

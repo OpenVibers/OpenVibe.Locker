@@ -10,6 +10,23 @@ const create = async (sealed, send = false, extra = '') => {
     const body = await r.json(); assert.equal(r.status, 201, JSON.stringify(body)); return body;
 };
 
+test('llms.txt and llms-full.txt describe the public pages', async () => {
+    const llms = await t.request('GET', '/llms.txt', { user: null });
+    assert.equal(llms.status, 200);
+    assert.match(llms.headers.get('content-type'), /^text\/plain/);
+    assert.match(await llms.text(), /\(\/llms-full\.txt\)/, 'llms.txt names the full text');
+    const full = await t.request('GET', '/llms-full.txt', { user: null });
+    assert.equal(full.status, 200);
+    assert.match(full.headers.get('content-type'), /^text\/plain/);
+    const text = await full.text();
+    assert.ok(text.startsWith('# OpenVibe.Locker\n'), 'llms-full.txt opens with the site heading');
+    assert.ok(text.length > 500, `llms-full.txt carries the pages (${text.length} characters)`);
+    for (const url of ['https://openvibe.locker/', 'https://openvibe.locker/docs', 'https://openvibe.locker/openapi.json', 'https://openvibe.locker/.well-known/agent.json']) {
+        assert.ok(text.includes(url), `llms-full.txt names ${url}`);
+    }
+    assert.ok(!text.includes('/passwords'), 'no signed-in page is in the full text');
+});
+
 test('password login items use people locks and remain opaque in storage', async () => {
     const secret = JSON.stringify({ version: 1, site: 'https://example.test', username: 'alice', password: 'secret-password', totp: '', notes: '' });
     const encrypted = await locker.seal(secret, { lock: 'people', keys: [{ subject: { type: 'user', id: SUBJECT }, publicKey: t.people.get(SUBJECT).ecdhPublic }] });
