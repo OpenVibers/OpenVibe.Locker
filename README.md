@@ -102,3 +102,21 @@ ADR-033 export provides an opaque manifest with IDs and download routes; each en
 while the account exists. Network owns the wrapped-key export. Account deletion denies all access immediately,
 queues ciphertext erasure, cancels pending deliveries and removes memberships. Append-only access/moderation
 history and an account deletion marker are retained as security evidence; they contain no plaintext or keys.
+
+### Companion password access
+
+`/api/v1/companion` accepts only a Bearer token which Network validates live at
+`GET /api/v1/me/keys/companion` (the Companion needs `locker.login.manage`). Deploy
+that Network scope/endpoint first; existing Companion grants require a new sign-in.
+No extension origin CORS wildcard or cookie authentication is added.
+
+- `GET /keys`: the caller's subject and wrapped key backups, never plaintext keys.
+- `GET /logins?before=…`: owner-only encrypted login metadata with the normal cursor.
+- `GET /logins/:id/content`: only that owner's `kind=login` ciphertext.
+- `POST /logins`: an SDK envelope, `application/octet-stream`, at most 2 MiB; the
+  item kind is fixed to `login`. Site, username, password, TOTP and notes belong in
+  the sealed payload. Normal upload quota, age and envelope validation apply.
+
+The scoped token cannot reach the general file API, key updates or blind fill.
+Every request revalidates Network's live token family, including content downloads.
+Run `node --test test/companion.test.js` for isolation and ciphertext-only checks.

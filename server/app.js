@@ -39,6 +39,7 @@ async function createApp(options = {}) {
     app.use('/internal/events', accountData.consumer({ secrets: [config.eventsSecret].filter(Boolean),
         send: options.sendAccountData || (config.clientSecret ? createNetworkSender({ networkInternalUrl: config.networkInternalUrl, clientId: config.clientId, clientSecret: config.clientSecret })
             : async () => { throw new Error('Account delivery is not configured.'); }) }));
+    app.use('/api/v1/companion', require('./companion').companionRouter({ network, service }));
     app.use('/auth', sso.router(express));
     app.use(sso.optionalAuth());
     app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'openvibe-locker', version: require('../package.json').version }));
