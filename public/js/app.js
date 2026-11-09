@@ -348,6 +348,13 @@
     form('#report-form', async (data) => { await api(`/api/v1/${page.mode === 'send' ? 'sends' : 'files'}/${page.id}/report`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: data.get('reason') }) }); notice('Report received. Thank you.'); });
     state();
     try {
+        // A public page (home, docs, an opened Send) asks the session first: /auth/me answers 200 with user null for a
+        // visitor, so their console no longer shows a 401 from /api/v1/me on every visit. A failed check still tries.
+        if (['send', 'docs', 'home'].includes(page.mode)) {
+            const who = await fetch('/auth/me', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+            if (who && who.user === null) return;
+        }
         me = await api('/api/v1/me'); window.OpenVibeLockerConfig.subject = me.subject;
         showStorage();
         await refresh();
