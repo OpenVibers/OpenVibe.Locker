@@ -32,6 +32,12 @@ test('the security policy lets an avatar from openvibe.media show in img-src', a
     assert.match(csp, /img-src[^;]*https:\/\/openvibe\.media(?:[ ;]|$)/, csp);
 });
 
+test('public arrivals can check Network and start the existing silent sign-in flow', async () => {
+    const page = await t.request('GET', '/', { user: null });
+    assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/openvibe\.network(?:[ ;]|$)/);
+    assert.match(await page.text(), /"silentLogin":"\/auth\/login\?silent=1&next=\{url\}"/);
+});
+
 test('password login items use people locks and remain opaque in storage', async () => {
     const secret = JSON.stringify({ version: 1, site: 'https://example.test', username: 'alice', password: 'secret-password', totp: '', notes: '' });
     const encrypted = await locker.seal(secret, { lock: 'people', keys: [{ subject: { type: 'user', id: SUBJECT }, publicKey: t.people.get(SUBJECT).ecdhPublic }] });
