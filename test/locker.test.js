@@ -27,6 +27,11 @@ test('llms.txt and llms-full.txt describe the public pages', async () => {
     assert.ok(!text.includes('/passwords'), 'no signed-in page is in the full text');
 });
 
+test('the security policy lets an avatar from openvibe.media show in img-src', async () => {
+    const csp = (await t.request('GET', '/', { user: null })).headers.get('content-security-policy') || '';
+    assert.match(csp, /img-src[^;]*https:\/\/openvibe\.media(?:[ ;]|$)/, csp);
+});
+
 test('password login items use people locks and remain opaque in storage', async () => {
     const secret = JSON.stringify({ version: 1, site: 'https://example.test', username: 'alice', password: 'secret-password', totp: '', notes: '' });
     const encrypted = await locker.seal(secret, { lock: 'people', keys: [{ subject: { type: 'user', id: SUBJECT }, publicKey: t.people.get(SUBJECT).ecdhPublic }] });
