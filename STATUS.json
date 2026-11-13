@@ -22,7 +22,7 @@
   "stage": "alpha",
   "deployed": false,
   "contracts": "openvibe-contracts v0.419.0",
-  "sdk": "openvibe-sdk v0.161.0",
+  "sdk": "openvibe-sdk v0.166.0",
   "shared": "openvibe-shared v4.241.0",
   "updated": "2026-11-13"
 }
