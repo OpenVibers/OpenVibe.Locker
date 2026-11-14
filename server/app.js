@@ -40,6 +40,16 @@ async function createApp(options = {}) {
         send: options.sendAccountData || (config.clientSecret ? createNetworkSender({ networkInternalUrl: config.networkInternalUrl, clientId: config.clientId, clientSecret: config.clientSecret })
             : async () => { throw new Error('Account delivery is not configured.'); }) }));
     app.use('/api/v1/companion', require('./companion').companionRouter({ network, service }));
+    // The shared navbar's Dock and Alerts read the person's Network places with their token. Locker keeps the session
+    // cookie HTTP-only (httpOnlyAccess), so the navbar asks for it here, same-origin only and never cached (as Cam does).
+    // Without it the menu's Alerts said "Your notifications are on your account" (the owner, 11-14).
+    app.get('/auth/navbar-token', sso.optionalAuth(), (req, res) => {
+        res.set({ 'Cache-Control': 'private, no-store', Vary: 'Cookie' });
+        const site = String(req.get('sec-fetch-site') || '');
+        if (site && site !== 'same-origin') return res.status(403).json({ error: 'Same-origin only', code: 'locker.navbar_token.cross_site' });
+        if (!req.user || !req.token) return res.status(401).json({ error: 'Not signed in', code: 'locker.navbar_token.signed_out' });
+        res.json({ token: req.token });
+    });
     app.use('/auth', sso.router(express));
     app.use(sso.optionalAuth());
     app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'openvibe-locker', version: require('../package.json').version }));

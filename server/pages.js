@@ -16,7 +16,7 @@ function createPages({ config }) {
             name: 'OpenVibe.Locker', siteName: 'OpenVibe.Locker', title: `${title} · OpenVibe.Locker`, titleSuffix: '', lang: 'en',
             description: 'Your files, locked on your device. Private by math.', canonical: `${config.baseUrl}${req.path}`, robots: 'noindex, nofollow',
             navbar: { service: 'locker', history: false, brandName: 'OpenVibe.Locker', apiBase: config.networkUrl, links: nav.map((n) => ({ ...n, active: req.path === n.href })),
-                sessionUrl: '/auth/me', loginUrl: '/auth/login?next={path}', logoutUrl: '/auth/logout?next={path}',
+                sessionUrl: '/auth/me', tokenUrl: '/auth/navbar-token', loginUrl: '/auth/login?next={path}', logoutUrl: '/auth/logout?next={path}',
                 silentLogin: '/auth/login?silent=1&next={url}' },
             footer: { service: 'locker', variant: 'full', brandName: 'OpenVibe.Locker' },
             head: '<link rel="stylesheet" href="/shared/kit.css"><link rel="stylesheet" href="/shared/ov-locker.css"><link rel="stylesheet" href="/css/locker.css"><link rel="icon" href="/icon.svg"><meta name="referrer" content="no-referrer">',
