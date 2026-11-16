@@ -123,3 +123,9 @@ No extension origin CORS wildcard or cookie authentication is added.
 The scoped token cannot reach the general file API, key updates or blind fill.
 Every request revalidates Network's live token family, including content downloads.
 Run `node --test test/companion.test.js` for isolation and ciphertext-only checks.
+
+<!-- versions:start -->
+- openvibe-contracts: v0.443.0
+- openvibe-sdk: v0.177.0
+- openvibe-shared: v4.288.0
+<!-- versions:end -->
