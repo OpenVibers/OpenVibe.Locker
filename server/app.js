@@ -29,6 +29,9 @@ async function createApp(options = {}) {
         networkUrl: config.networkUrl, networkInternalUrl: config.networkInternalUrl, secureCookies: config.secureCookies, httpOnlyAccess: true });
     const app = express();
     app.disable('x-powered-by'); app.set('trust proxy', config.trustProxy);
+    // GET /metrics (loopback only: Prometheus on the host), the HTTP middleware first, process metrics and release_info.
+    const release = require('openvibe-shared/release').createRelease({ service: 'locker', root: path.join(__dirname, '..') });
+    const metrics = require('openvibe-shared/metrics').instrument(app, { service: 'locker', release: release.release });
     app.use(helmet({ contentSecurityPolicy: { directives: {
         defaultSrc: ["'self'"], scriptSrc: ["'self'", "'unsafe-inline'", config.networkUrl, 'https://static.cloudflareinsights.com'], styleSrc: ["'self'", "'unsafe-inline'", config.networkUrl, 'https://fonts.googleapis.com'],
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'], imgSrc: ["'self'", 'data:', 'blob:', config.networkUrl, 'https://openvibe.media'],
@@ -189,7 +192,7 @@ async function createApp(options = {}) {
     }));
     // GET /release.json (ADR-016): the navbar's release watch polls it so open tabs learn of a new release (the 11-09
     // browser sweep found it answering 404 here).
-    require('openvibe-shared/release').createRelease({ service: 'locker', root: path.join(__dirname, '..') }).mount(app);
+    release.mount(app, { registry: metrics.registry });
     app.use('/shared', require('openvibe-shared/serve').handler());
     app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: '1h' }));
     app.use(require('./pages').createPages({ config }));
