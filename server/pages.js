@@ -10,11 +10,19 @@ const report = `<form id="report-form" class="report"><label>Report this item<se
 function createPages({ config }) {
     const r = express.Router();
     const nav = [{ label: 'Locker', href: '/' }, { label: 'Drive', href: '/drive' }, { label: 'Passwords', href: '/passwords' }, { label: 'Sends', href: '/sends' }, { label: 'Recovery kit', href: '/recovery' }, { label: 'Docs', href: '/docs' }];
+    // The home and the docs are public (robots.txt allows them and the sitemap lists them); every other page is private
+    // and stays out of search (the network SEO crawl of 2026-11-21 found the two listed pages marked noindex).
+    const PUBLIC = new Set(['home', 'docs']);
+    const DESCRIPTIONS = {
+        home: 'Your files, passwords and private sends, locked on your device before they leave it. Private by math: OpenVibe stores only encrypted bytes.',
+        docs: 'How Locker locks work for people and agents: people, password and link locks, Drive and Sends, and locking a file for an @name with the SDK.',
+    };
     function page(req, res, title, body, mode, id = '') {
         const boot = JSON.stringify({ network: config.networkUrl, mode, id }).replaceAll('<', '\\u003c');
-        res.set({ 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex' }).type('html').send(shell.page({
+        const listed = PUBLIC.has(mode);
+        res.set({ 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer', ...(listed ? {} : { 'X-Robots-Tag': 'noindex' }) }).type('html').send(shell.page({
             name: 'OpenVibe.Locker', siteName: 'OpenVibe.Locker', title: `${title} · OpenVibe.Locker`, titleSuffix: '', lang: 'en',
-            description: 'Your files, locked on your device. Private by math.', canonical: `${config.baseUrl}${req.path}`, robots: 'noindex, nofollow',
+            description: DESCRIPTIONS[mode] || DESCRIPTIONS.home, canonical: `${config.baseUrl}${req.path}`, robots: listed ? 'index, follow' : 'noindex, nofollow',
             navbar: { service: 'locker', history: false, brandName: 'OpenVibe.Locker', apiBase: config.networkUrl, links: nav.map((n) => ({ ...n, active: req.path === n.href })),
                 sessionUrl: '/auth/me', tokenUrl: '/auth/navbar-token', loginUrl: '/auth/login?next={path}', logoutUrl: '/auth/logout?next={path}',
                 silentLogin: '/auth/login?silent=1&next={url}' },
