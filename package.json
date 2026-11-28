@@ -21,7 +21,7 @@
     "@electric-sql/pglite": "^0.5.8",
     "openvibe-contracts": "https://git.openvibe.codes/api/v1/repos/openvibers/openvibe.contracts/archive/v0.454.0.tar.gz",
     "openvibe-sdk": "https://git.openvibe.codes/api/v1/repos/openvibers/openvibe.sdk/archive/v0.190.0.tar.gz",
-    "openvibe-shared": "https://git.openvibe.codes/api/v1/repos/openvibers/openvibe.shared/archive/v4.337.0.tar.gz"
+    "openvibe-shared": "https://git.openvibe.codes/api/v1/repos/openvibers/openvibe.shared/archive/v4.339.0.tar.gz"
   },
   "devDependencies": {
     "playwright": "^1.55.1"
